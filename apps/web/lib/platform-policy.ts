@@ -2,7 +2,7 @@ import type { PlatformStatus } from "./platform-types";
 import { SNAPSHOT_LIMITS } from "./platform-types";
 import { SESSION_IDLE_SECONDS } from "./session-policy";
 
-export const DEFAULT_PLATFORM_URL = "https://ai-sdk.pro";
+export const DEFAULT_PLATFORM_URL = "https://platform.ai-sdk.pro";
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const CONFIG_KEYS = [
   "NEON_DATABASE_URL",
