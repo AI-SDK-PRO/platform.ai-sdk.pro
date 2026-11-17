@@ -5,6 +5,7 @@ import {
 import { github, githubExchange, installationToken, githubAppIssuer, verifySignature } from './github.js';
 import { cloudflare } from './cloudflare.js';
 import { readBridgeMessage } from './bridge.js';
+import { workspaceProxy } from './workspace-proxy.js';
 import { allowUnifiedDeploy, quotaForPlan } from './access-policy.js';
 export { DeploymentWorkflow, BuildSandbox, ContainerProxy } from './pipeline.js';
 
@@ -374,6 +375,8 @@ export default {
     const url = new URL(request.url);
     if (!allowedApiOrigins(env).has(url.origin)) return json({ error: 'Unknown platform host.' }, 404);
     try {
+      const workspace = await workspaceProxy(request, env);
+      if (workspace) return workspace;
       if (url.pathname === '/health' && request.method === 'GET') {
         await first(env, 'SELECT 1');
         const diagnostics = { status: 'ok', d1: true, crypto: false, github_app_issuer: (() => { try { return Boolean(githubAppIssuer(env)); } catch { return false; } })() };
