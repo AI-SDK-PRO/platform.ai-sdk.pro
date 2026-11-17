@@ -1,121 +1,155 @@
-platform.ai-sdk.pro เป็นแพลตฟอร์มและชุดเครื่องมือสำหรับสร้าง เว็บแอป AI agent: มีเว็บแชตแบบสตรีมมิง ตัวอย่าง starter เอกสารภาษาไทย และ client SDK ส่วนระบบ Workspace นำเข้า source จาก GitHub ได้ ส่วนการ Build/Deploy มีโค้ดและ staging แยกอยู่ แต่ยังมีเงื่อนไขการเปิดใช้งานที่ต้องตรวจสอบก่อนใช้จริง
+# ai-sdk.pro
 
-Stack
+แพลตฟอร์มอิสระสำหรับสร้าง AI agents และเรียกใช้งานผ่าน AI SDK 6 UI Message Stream โดยตั้งใจให้ self-host บน VPS ของผู้ดูแลเอง ไม่ผูกกับ Vercel แชท public ใช้ BYOK: ผู้ใช้เลือกบริการ AI และกรอก API key ของตัวเอง คีย์ของเจ้าของเว็บไม่ถูกส่งให้ผู้ใช้
 
-- ภาษา: TypeScript เป็นหลัก; มี JavaScript ใน Cloudflare platform และ Python สำหรับตรวจ/แพ็ก starter
-- Framework / runtime: Next.js App Router, React, Node.js; Cloudflare Workers สำหรับ agent และระบบ deploy
-- ไลบรารีสำคัญ: AI SDK 6, Better Auth, Drizzle ORM/Neon, Fumadocs, Cloudflare Agents SDK
-- เครื่องมือ workspace: pnpm 10.18 และ Turborepo
+> ai-sdk.pro เป็นแหล่งข้อมูลและซอฟต์แวร์อิสระ ไม่ใช่เว็บไซต์ทางการของ Vercel โปรดอ้างอิงเอกสารทางการของ AI SDK สำหรับรายละเอียด API รุ่นล่าสุด
 
-How it's organized
+> สำหรับการทำงานต่อจากเครื่องหรือเซสชันอื่น ให้อ่าน [PROJECT-MEMORY.md](PROJECT-MEMORY.md) ก่อน เพื่อดูสถานะล่าสุด จุดที่เก็บ source/runtime และข้อจำกัดที่ต้องรักษา
 
-apps/  
-  web/                 เว็บหลัก, chat API, workspace และ GitHub integration  
-  docs/                เอกสาร Fumadocs แยก build ได้  
-  agent-worker/        Cloudflare Worker สำหรับ keyless chat และ quota  
-packages/  
-  sdk/                 @aisdkpro/client สำหรับเรียก chat stream  
-  ui/                  คอมโพเนนต์และ design system ที่ใช้ร่วมกัน  
-infra/  
-  cloudflare-platform/ control plane, queue, sandbox build และ deploy staging  
-  project-preview/     โค้ดระบบ preview แยก  
-  workflows/           ตัวอย่าง workflow สำหรับ deploy/publish ที่ยัง opt-in  
-starters/              ตัวอย่าง Streaming Chat, Docs Assistant, Agent Launchpad  
-scripts/               ตรวจและแพ็ก starter
+## สถานะ Deploy โปรเจกต์ผู้ใช้ · Staging
 
-How it fits together: เว็บหลักจัดการหน้าเว็บและ chat endpoint โดย apps/web/app/api/chat/route.ts ตรวจ request และ BYOK ก่อนส่งให้ assistant-agent.ts สร้าง agent แล้วสตรีมผลกลับมา ส่วน packages/sdk มี ChatClient และ React hook สำหรับใช้ stream นั้นจากแอปอื่นได้ ข้อมูล Workspace และ repository snapshot อยู่คนละเส้นทางกับการรันโค้ดผู้ใช้
+- ใช้ `z-ey3eiei/urban-couscous` เป็นรีโปทดสอบ แยกจากการ deploy เว็บแพลตฟอร์ม ยืนยันแล้วว่า push ทดสอบ `94df574` เข้าคิว Neon staging ได้
+- workflow `aisdk-preview.yml` อยู่บน default branch ของรีโปทดสอบแล้ว ตัวอ่านคิวใน `infra/project-preview` แยกจากเว็บ staging โดย [GitHub Actions รอบ #10](https://github.com/z-ey3eiei/ai-sdk-pro/actions/runs/43880132842) สร้าง image สำหรับ Coolify
+- เว็บ staging ใช้ Neon staging แล้ว ตัวอ่านคิวต้องใช้ฐาน staging เดียวกันและ credential ที่มี Actions Write เฉพาะรีโปทดสอบ ส่วน GitHub environment `aisdk-preview` ใช้ secret สำหรับเผยแพร่ไปยัง Cloudflare Pages project `ai-sdk-pro-preview-pilot`
+- เกณฑ์ทดสอบก่อนเปิด production คือ push ไป branch ทดสอบแล้วเห็นคิวถูกหยิบ, GitHub Actions สร้างจาก SHA เดียวกัน และ Preview URL เปิดได้พร้อมแสดงผลของ commit นั้น
 
-แนวทางที่แนะนำคือ ทำงานเป็นช่วงและอย่าเปิดทุกฟีเจอร์พร้อมกัน:
+## สถานะล่าสุด · 16 พฤศจิกายน 2026
 
-1. ยืนยันขอบเขตการใช้งานจริงก่อน — ทดสอบเว็บ, BYOK chat, GitHub login และ repository import พร้อมรัน test/typecheck/build ให้ผ่าน ใช้ staging หรือข้อมูลทดสอบ ไม่ใช้ข้อมูลจริงในการทดสอบ
-2. ให้ความสำคัญกับขอบเขตความปลอดภัยของ deploy — ทดสอบเส้นทาง Workspace → Cloudflare control plane → queue → build → routing แบบ end-to-end ใน staging ก่อนเปิดใช้จริง เอกสารระบุว่า PLATFORM_BRIDGE_ENABLED และ PROJECT_ROUTING_READY ต้องเปิดอย่างระมัดระวัง; ปัจจุบัน static deployment เป็นขอบเขตเริ่มต้นที่เหมาะสมกว่า framework builds
-3. ค่อยทำ keyless chat เป็นงานแยก — apps/agent-worker มีการผูก chat กับ user/thread และมี budget/quota guard แล้ว แต่ควรทดสอบ auth, การแยกข้อมูลผู้ใช้, การคิดค่าใช้จ่าย และกรณีเกินงบให้ครบก่อนเปิดใช้กับผู้ใช้
-4. ปล่อย SDK หลังยืนยัน package จริง — packages/sdk มี build, test และ publish:dry-run แต่ README ระบุ workflow สำหรับ npm เป็น opt-in และการ publish ต้องตั้งค่า namespace/Trusted Publishing ก่อน อย่าสับสนว่า SDK นี้เป็น CLI หรือ deploy API เพราะขอบเขตปัจจุบันคือ chat client
+| งาน | สถานะ |
+| --- | --- |
+| Deploy แอปไป Coolify staging | [GitHub Actions รอบ #5](https://github.com/z-ey3eiei/ai-sdk-pro/actions/runs/43824138105) สร้าง image, push ไป GHCR และส่งงานให้ Coolify สำเร็จ Coolify ยืนยัน rolling update และ [`/api/health`](https://staging.ai-sdk.pro/api/health) ตอบ `ok` ใช้การกด Run workflow จาก `main` การ Deploy เมื่อ `git push` ยังไม่ได้เปิด |
+| GitHub OAuth สำหรับ staging | ลงทะเบียน `AI SDK Pro Staging` และตั้ง callback ที่ `https://staging.ai-sdk.pro/api/auth/callback/github` แล้ว ค่า GitHub OAuth และ Better Auth ถูกบันทึกใน Coolify staging |
+| Neon สำหรับ staging | สร้างโปรเจกต์ `ai-sdk-pro-staging` ใน `Neondu` แยกจาก production และรัน migration `0001_platform.sql` กับ `0006_platform_tokens.sql` แล้ว ตรวจพบตาราง session และ platform token |
+| คีย์แพลตฟอร์ม `ais_…` | โค้ดจาก [PR #6](https://github.com/z-ey3eiei/ai-sdk-pro/pull/6) อยู่บน `main` และ deploy ไป staging แล้ว เมนู **Workspace → API tokens** รองรับสร้างและเพิกถอนคีย์ คีย์ใช้สิทธิ์ `repo:read` สำหรับรายการรีโปของเจ้าของผ่าน `GET /api/v1/repositories` และหมดอายุใน 90 วัน ทดสอบแล้วว่า API ปฏิเสธคำขอที่ไม่มีคีย์ ส่วนการทดสอบด้วยบัญชีจริงยังค้าง |
 
-มีข้อควรยึดเป็นหลัก: โค้ดจาก repository ที่ผู้ใช้นำเข้าเป็น untrusted code ควรรันเฉพาะใน build sandbox ที่แยกจากเว็บและ secret ของระบบ ห้ามนำมารันใน container ของ apps/web หรือให้เข้าถึง Docker socket, Neon, GitHub token หรือ credentials สำหรับ deploy
+รอบทดสอบคีย์แบบครบวงจรยังต้องทดสอบ GitHub login, สร้างคีย์, อ่านรายการรีโปด้วย Bearer token, เพิกถอนคีย์ และยืนยันว่าคีย์เดิมถูกปฏิเสธ ค่าที่ใช้เชื่อมต่อฐานข้อมูลต้องอยู่ใน Coolify โดยตรง
 
-How to run it
+การเปิดคีย์ `ais_…` บน production และสิทธิ์สั่ง Push หรือ Deploy ด้วยคีย์ยังรอการพัฒนาและทดสอบ
 
-จาก root ของ repo ใช้ Node.js 22 และ pnpm 10.18.0:
+## เลือก Starter และใช้เครื่องมือจริง
 
-pnpm install --frozen-lockfile  
-pnpm test  
-pnpm typecheck  
-pnpm build  
+เปิด https://ai-sdk.pro/templates เพื่อเลือก Streaming Chat, Docs Assistant หรือ Agent Launchpad พร้อม source download, code previews และคำสั่งรันในเครื่อง ดูคู่มือที่ https://ai-sdk.pro/docs/using-templates และใช้ Playground/Workspace ที่มีอยู่จริง ปุ่ม Deploy เปิด recipe ของ DevStack ให้ผู้ใช้เลือก source/อนุญาตสิทธิ์/ตรวจขั้น deploy เอง ไม่ส่ง code, API key หรือยืนยัน deployment อัตโนมัติ
+
+DevStack ปัจจุบัน: https://github.com/developer-devstack/devstack.bid และ https://www.npmjs.com/package/devstack-bid ไม่มีการแก้บริการ DevStack หรือสร้าง Worker/CLI/deploy engine ซ้ำในรุ่นนี้ ติดต่อ ai-sdk.pro: [sdkbank@1origin.dev](mailto:sdkbank@1origin.dev)
+
+## เวอร์ชันเริ่มต้น: v0.1.0
+
+เวอร์ชันตรงกับ root package.json และทุก workspace package ดูประวัติการเปลี่ยนแปลงที่ [CHANGELOG.md](CHANGELOG.md) และ [VERSION](VERSION) Git tag `v0.1.0` ระบุ source ของ release เริ่มต้น
+
+ไฟล์ [`apps/web/components/llm.tsx`](apps/web/components/llm.tsx) เป็นคอมโพเนนต์แชท AI ที่ใช้จริงในหน้า `/chat` รองรับ streaming, tool activity, stop, retry และ new conversation ผู้ใช้กรอกคีย์ผ่านช่องปกปิด ซึ่งเก็บในหน่วยความจำของหน้าเว็บและส่งผ่าน HTTPS ไปยังเซิร์ฟเวอร์สำหรับ request นั้นเท่านั้น:
+
+```tsx
+import LLMChat from '@/components/llm';
+
+export default function ChatPage() {
+  return <LLMChat api="/api/chat" configApi="/api/config" />;
+}
+```
+
+หากนำไปวางใน layout ที่มี header อยู่แล้ว ให้ส่ง `showHeader={false}` ห้ามเปลี่ยน `api` เป็น provider endpoint หรือ hardcode คีย์เจ้าของเว็บในคอมโพเนนต์นี้
+
+## BYOK: ผู้ใช้เลือกบริการและกรอกคีย์เอง
+
+รองรับ Anthropic/Claude, OpenAI/GPT และ Google/Gemini โดยเรียก fixed official endpoints ผ่าน AI SDK ฝั่งเซิร์ฟเวอร์ ค่าเริ่มต้น public API ต้องมี `byok: { provider, model, apiKey }` แยกจาก `messages` ทุกครั้ง เก็บคีย์เฉพาะใน page/request memory ไม่เก็บลง localStorage, sessionStorage, cookie, database, log หรือประวัติข้อความ มีปุ่ม Forget key และการเปลี่ยน provider จะล้างคีย์เดิม
+
+การเชื่อมใน UI เป็นการตรวจรูปแบบเท่านั้น ไม่ใช่การรับรองว่าคีย์ใช้ได้และไม่เรียก API จนกดส่งข้อความ Provider เรียกเก็บค่าโมเดลจากบัญชีของผู้ใช้ตามการใช้งานจริง การมี subscription ของ ChatGPT/Claude ไม่ได้เท่ากับมี API credit โมเดลที่ใช้ได้ขึ้นอยู่กับบัญชีและผู้ให้บริการ
+
+Production ใช้ `BYOK_ONLY=true` (เป็นค่าเริ่มต้น) โดยไม่ fallback ไปคีย์ owner/sandbox และไม่เปิด privileged server MCP ให้ visitor requests `/api/ready` ตรวจว่าระบบพร้อมรับ BYOK ได้ ไม่ได้ทดสอบคีย์ของผู้ใช้ `BYOK_ONLY=false` มีไว้เฉพาะ development/การใช้งาน private ที่ตั้งใจใช้ server key เท่านั้น
+
+## ขอบเขตของ foundation ชุดนี้
+
+โค้ดที่มีอยู่จริงคือ public BYOK chat, GitHub login/Neon-backed personal workspace กับ read-only repository snapshot import, เอกสาร, starter source downloads, `@aisdkpro/client` สำหรับ UI Message Stream และ self-hosting ของแพลตฟอร์มเอง สถานะ Deploy ไป Coolify และ platform keys ระบุไว้ในหัวข้อสถานะล่าสุด ระบบ build/runtime สำหรับโปรเจกต์ของผู้ใช้ทั่วไป, deployment API สำหรับผู้ใช้, platform CLI และ npm publication ของ Client SDK ยังไม่อยู่ในขอบเขตนี้ ไม่จำลองสถานะว่า deploy repo แล้ว และยังไม่สร้าง Worker ใหม่เพื่อทำซ้ำกับ DevStack
+
+ดังนั้น SDK ปัจจุบันรองรับการเรียก chat endpoint จริงเท่านั้น ไม่ได้สร้าง deploy/project API จำลอง ไฟล์ Docker/Caddy/GitHub Actions เป็น deployment foundation ส่วนงาน deployment จริงต้องตรวจ source revision, HTTP, DNS และ TLS บนเซิร์ฟเวอร์เป้าหมายก่อนรายงานสำเร็จ ไม่ควรสรุปจากไฟล์ configuration เพียงอย่างเดียว
+
+## พัฒนาใน monorepo
+
+```bash
+pnpm install
 pnpm dev
+pnpm build
+pnpm typecheck
+```
 
-เว็บหลักรันที่ apps/web; ถ้าต้องการรันเอกสารแยก ใช้ pnpm dev:docs สำหรับ chat ให้ใช้ BYOK ตาม flow ในเว็บ หรือกำหนดค่า server-side สำหรับการพัฒนา—อย่าใส่ provider key ใน client code หรือ commit ลง Git ค่า environment ตัวอย่างอยู่ใน .env.example และมี secret สำหรับ auth/database/GitHub ที่ต้องตั้งเพิ่มหากจะทดสอบ Workspace
+โครงสร้างหลัก:
 
-สำหรับ Cloudflare platform ให้ทำงานแยกที่โฟลเดอร์นั้น:
+- `apps/web` — Next.js App Router, agent, chat route และ playground
+- `apps/docs` — เอกสารภาษาไทยพร้อมตัวอย่างโค้ดภาษาอังกฤษ
+- `packages/ui` — shared visual components
+- `packages/sdk` — `@aisdkpro/client` แบบ publishable
+- `infra` — Docker, Compose, Caddy, systemd fallback และ runbooks
+- `infra/workflows` — เทมเพลต GitHub Actions สำหรับ GHCR/SSH deploy และ npm Trusted Publishing; ยังไม่ active
 
-cd infra/cloudflare-platform  
-npm ci  
-npm test  
-npm run check  
-npm run dry-runplatform.ai-sdk.pro เป็นแพลตฟอร์มและชุดเครื่องมือสำหรับสร้าง เว็บแอป AI agent: มีเว็บแชตแบบสตรีมมิง ตัวอย่าง starter เอกสารภาษาไทย และ client SDK ส่วนระบบ Workspace นำเข้า source จาก GitHub ได้ ส่วนการ Build/Deploy มีโค้ดและ staging แยกอยู่ แต่ยังมีเงื่อนไขการเปิดใช้งานที่ต้องตรวจสอบก่อนใช้จริง
+## Client SDK
 
-Stack
+```bash
+pnpm --filter @aisdkpro/client typecheck
+pnpm --filter @aisdkpro/client test
+pnpm --filter @aisdkpro/client build
+pnpm --filter @aisdkpro/client publish:dry-run
+```
 
-- ภาษา: TypeScript เป็นหลัก; มี JavaScript ใน Cloudflare platform และ Python สำหรับตรวจ/แพ็ก starter
-- Framework / runtime: Next.js App Router, React, Node.js; Cloudflare Workers สำหรับ agent และระบบ deploy
-- ไลบรารีสำคัญ: AI SDK 6, Better Auth, Drizzle ORM/Neon, Fumadocs, Cloudflare Agents SDK
-- เครื่องมือ workspace: pnpm 10.18 และ Turborepo
+ตัวอย่างการเรียก endpoint จาก application อื่น:
 
-How it's organized
+```ts
+import type { UIMessage } from 'ai';
+import { ChatClient } from '@aisdkpro/client';
 
-apps/  
-  web/                 เว็บหลัก, chat API, workspace และ GitHub integration  
-  docs/                เอกสาร Fumadocs แยก build ได้  
-  agent-worker/        Cloudflare Worker สำหรับ keyless chat และ quota  
-packages/  
-  sdk/                 @aisdkpro/client สำหรับเรียก chat stream  
-  ui/                  คอมโพเนนต์และ design system ที่ใช้ร่วมกัน  
-infra/  
-  cloudflare-platform/ control plane, queue, sandbox build และ deploy staging  
-  project-preview/     โค้ดระบบ preview แยก  
-  workflows/           ตัวอย่าง workflow สำหรับ deploy/publish ที่ยัง opt-in  
-starters/              ตัวอย่าง Streaming Chat, Docs Assistant, Agent Launchpad  
-scripts/               ตรวจและแพ็ก starter
+const client = new ChatClient({
+  baseUrl: 'https://ai-sdk.pro',
+  endpoint: '/api/chat',
+});
 
-How it fits together: เว็บหลักจัดการหน้าเว็บและ chat endpoint โดย apps/web/app/api/chat/route.ts ตรวจ request และ BYOK ก่อนส่งให้ assistant-agent.ts สร้าง agent แล้วสตรีมผลกลับมา ส่วน packages/sdk มี ChatClient และ React hook สำหรับใช้ stream นั้นจากแอปอื่นได้ ข้อมูล Workspace และ repository snapshot อยู่คนละเส้นทางกับการรันโค้ดผู้ใช้
+const messages: UIMessage[] = [{ id: 'user-1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] }];
+for await (const event of client.stream(messages, {
+  body: { byok: { provider: 'openai', model: 'gpt-5-mini', apiKey: userEnteredKey } },
+})) {
+  if (event.type === 'text-delta') process.stdout.write(event.delta);
+}
+```
 
-แนวทางที่แนะนำคือ ทำงานเป็นช่วงและอย่าเปิดทุกฟีเจอร์พร้อมกัน:
+อ่าน API, browser compatibility และ jsDelivr example ได้ที่ [`packages/sdk/README.md`](packages/sdk/README.md)
 
-1. ยืนยันขอบเขตการใช้งานจริงก่อน — ทดสอบเว็บ, BYOK chat, GitHub login และ repository import พร้อมรัน test/typecheck/build ให้ผ่าน ใช้ staging หรือข้อมูลทดสอบ ไม่ใช้ข้อมูลจริงในการทดสอบ
-2. ให้ความสำคัญกับขอบเขตความปลอดภัยของ deploy — ทดสอบเส้นทาง Workspace → Cloudflare control plane → queue → build → routing แบบ end-to-end ใน staging ก่อนเปิดใช้จริง เอกสารระบุว่า PLATFORM_BRIDGE_ENABLED และ PROJECT_ROUTING_READY ต้องเปิดอย่างระมัดระวัง; ปัจจุบัน static deployment เป็นขอบเขตเริ่มต้นที่เหมาะสมกว่า framework builds
-3. ค่อยทำ keyless chat เป็นงานแยก — apps/agent-worker มีการผูก chat กับ user/thread และมี budget/quota guard แล้ว แต่ควรทดสอบ auth, การแยกข้อมูลผู้ใช้, การคิดค่าใช้จ่าย และกรณีเกินงบให้ครบก่อนเปิดใช้กับผู้ใช้
-4. ปล่อย SDK หลังยืนยัน package จริง — packages/sdk มี build, test และ publish:dry-run แต่ README ระบุ workflow สำหรับ npm เป็น opt-in และการ publish ต้องตั้งค่า namespace/Trusted Publishing ก่อน อย่าสับสนว่า SDK นี้เป็น CLI หรือ deploy API เพราะขอบเขตปัจจุบันคือ chat client
+## Self-hosting
 
-มีข้อควรยึดเป็นหลัก: โค้ดจาก repository ที่ผู้ใช้นำเข้าเป็น untrusted code ควรรันเฉพาะใน build sandbox ที่แยกจากเว็บและ secret ของระบบ ห้ามนำมารันใน container ของ apps/web หรือให้เข้าถึง Docker socket, Neon, GitHub token หรือ credentials สำหรับ deploy
+คัดลอก template แล้วเติมค่าจริงบน server เท่านั้น:
 
-How to run it
+```bash
+cp .env.example .env
+chmod 600 .env
+set -a; . ./.env; set +a
+```
 
-จาก root ของ repo ใช้ Node.js 22 และ pnpm 10.18.0:
+ตัวแปร `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL`, `AI_API_KEY`, `ANTHROPIC_API_KEY`, `APP_ORIGINS`, `MCP_SERVER_URL` และ `MCP_AUTH_TOKEN` เป็น server-only configuration DigitalOcean token เป็น credential สำหรับ infrastructure เท่านั้น ไม่ใช่ LLM key และต้องเก็บใน operator secret store แยกจาก app .env และ app container
 
-pnpm install --frozen-lockfile  
-pnpm test  
-pnpm typecheck  
-pnpm build  
-pnpm dev
+เริ่มต้นแบบ Docker:
 
-เว็บหลักรันที่ apps/web; ถ้าต้องการรันเอกสารแยก ใช้ pnpm dev:docs สำหรับ chat ให้ใช้ BYOK ตาม flow ในเว็บ หรือกำหนดค่า server-side สำหรับการพัฒนา—อย่าใส่ provider key ใน client code หรือ commit ลง Git ค่า environment ตัวอย่างอยู่ใน .env.example และมี secret สำหรับ auth/database/GitHub ที่ต้องตั้งเพิ่มหากจะทดสอบ Workspace
+```bash
+docker compose --env-file .env -f infra/docker-compose.yml up -d
+curl --fail https://$DOMAIN/api/health
+```
 
-สำหรับ Cloudflare platform ให้ทำงานแยกที่โฟลเดอร์นั้น:
+`app` ไม่ publish port `3000`; มีเพียง Caddy ที่ bind `80/443` และตั้ง `flush_interval -1` สำหรับ SSE ดูขั้นตอน start, logs, secret rotation และ rollback ที่ [`infra/RUNBOOK.md`](infra/RUNBOOK.md)
 
-cd infra/cloudflare-platform  
-npm ci  
-npm test  
-npm run check  
-npm run dry-run
+- [Coolify guide](infra/DEPLOY-COOLIFY.md) — VPS 4 GB, Traefik/HTTPS และ rollback
+- [GitHub Actions guide](infra/DEPLOY-GITHUB-ACTIONS.md) — GHCR, SSH deploy และ health check
+- [`infra/ai-sdk-pro.service.example`](infra/ai-sdk-pro.service.example) — systemd fallback แบบ unprivileged
 
-<div align="center">
+## Secrets และการ deploy
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+ห้าม commit `.env`, API keys หรือใส่ provider values จริงใน README/CI คีย์ของเจ้าของสำหรับ private mode ต้องอยู่ใน runtime secret store ส่วนคีย์ BYOK ของผู้ใช้ต้องอยู่ใน page/request memory เท่านั้น ห้ามคงไว้ใน `.env` หรือฐานข้อมูล ก่อนใช้ npm workflow ผู้ดูแลต้องลงทะเบียน Trusted Publisher บน npmjs.com ด้วย repository และ workflow ที่ถูกต้องเอง; workflow ใน repo ทำหน้าที่ขอ OIDC token และ publish เท่านั้น
 
-  <h1>Built with AI Studio</h2>
+สำหรับ workflow SSH deploy และ npm publish ใน `infra/workflows` การเปิดใช้เป็นแบบ opt-in: ตั้ง repository variable `DEPLOY_ENABLED=true` หลัง VPS/secrets พร้อม หรือ `NPM_PUBLISH_ENABLED=true` หลัง npm Trusted Publisher พร้อมเท่านั้น การพุช source และ tag `v0.1.0` ครั้งแรกไม่เปิด deploy/publish ให้เอง
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+การ deploy ครั้งนี้ใช้ source archive ผ่าน SSH ไปยัง VPS ใหม่ของเจ้าของ จึงไม่ต้องพึ่ง GitHub login บนเซิร์ฟเวอร์ รายละเอียด server access และ credential ส่งแยกแบบส่วนตัว ไม่ใส่ใน source repo ไม่มีการ publish npm package หรือเปิด CI deployment อัตโนมัติ
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Starter packaging (maintainer)
 
-</div>
+Source ที่ผู้ใช้ดาวน์โหลดอยู่ใน `starters/<slug>/` มี dependency รุ่น pinned ของทางการและ README ของแต่ละตัว ไม่รวม key หรือ build caches ใช้ Python 3 สำหรับแพ็กและตรวจ:
+
+```bash
+python3 -m unittest discover -s scripts -p 'test_package_starters.py'
+python3 scripts/package-starters.py --check
+```
+
+Packager ตรวจทุก starter/CRC ใน staging ก่อน promote ZIP และ manifest ด้วย atomic rename ใช้ชื่อไฟล์ตาม SHA-256 และเก็บ archive รุ่นเดิมไว้เพื่อไม่ให้ cached pages ชี้ลิงก์เสีย ฟิลเตอร์ credential patterns เป็น guard ไม่ใช่การรับประกันตรวจเจอ secret ทุกชนิด ผู้ดูแลยังต้องตรวจ source ก่อนเผยแพร่ ไม่ใส่ `.env`, `.npmrc`, keys, user data หรือ private snippets ลงใน starter

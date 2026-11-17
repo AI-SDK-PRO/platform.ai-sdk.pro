@@ -1,0 +1,6 @@
+{
+  "name": "ai-sdk.pro",
+  "description": "Vercel-style AI Agent Platform on Cloudflare Edge with Unified Workspace, Keyless Chat Playground, Starter Templates, and Documentation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
