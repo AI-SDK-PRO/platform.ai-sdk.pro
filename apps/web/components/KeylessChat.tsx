@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
+import { Check, Copy, MessageSquarePlus, Square, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Streamdown } from "streamdown";
+import { StatusBadge } from "@aisdkpro/ui";
 
 type TokenResponse = { token: string; userId: string; threadId: string; expiresAt: string };
 type Quota = { used: number; remaining: number; remainingBudgetMicros: number };
 
 const THREAD_STORAGE = "aisdkpro:edge-thread-id";
+const THREAD_LIST_STORAGE = "aisdkpro:edge-threads";
 const INPUT_LIMIT = 4000;
 
 function isTokenResponse(value: unknown): value is TokenResponse {
@@ -23,6 +26,27 @@ function isTokenResponse(value: unknown): value is TokenResponse {
 
 function newThreadId(): string {
   return crypto.randomUUID();
+}
+
+function readThreadList(activeId: string): string[] {
+  try {
+    const raw = window.localStorage.getItem(THREAD_LIST_STORAGE);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    const valid = Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === "string" && /^[a-z0-9_-]{1,64}$/i.test(id))
+      : [];
+    return valid.includes(activeId) ? valid.slice(0, 12) : [activeId, ...valid].slice(0, 12);
+  } catch {
+    return [activeId];
+  }
+}
+
+function saveThreadList(ids: string[]) {
+  try {
+    window.localStorage.setItem(THREAD_LIST_STORAGE, JSON.stringify(ids.slice(0, 12)));
+  } catch {
+    // Non-secret thread ID cache is optional.
+  }
 }
 
 async function issueToken(threadId: string): Promise<TokenResponse> {
@@ -49,15 +73,22 @@ function EdgeConversation({
   host,
   session,
   threadId,
+  threads,
+  onSelectThread,
   onNewThread,
+  onSwitchToByok,
 }: {
   host: string;
   session: TokenResponse;
   threadId: string;
+  threads: string[];
+  onSelectThread: (id: string) => void;
   onNewThread: () => void;
+  onSwitchToByok?: () => void;
 }) {
   const [input, setInput] = useState("");
   const [messageError, setMessageError] = useState("");
+  const [copiedId, setCopiedId] = useState("");
   const [quota, setQuota] = useState<Quota | null>(null);
   const submitting = useRef(false);
   const requestToken = useCallback(() => issueToken(threadId), [threadId]);
@@ -104,10 +135,10 @@ function EdgeConversation({
   }, [refreshQuota]);
 
   const busy = status === "submitted" || status === "streaming" || isServerStreaming;
+  const quotaExhausted = quota?.remaining === 0;
 
-  async function send(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!input.trim() || busy || submitting.current || (quota && quota.remaining <= 0)) return;
+  async function submitText() {
+    if (!input.trim() || busy || submitting.current || quotaExhausted) return;
     submitting.current = true;
     setMessageError("");
     try {
@@ -121,59 +152,142 @@ function EdgeConversation({
     }
   }
 
+  function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submitText();
+  }
+
+  async function copyResponse(id: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(""), 1600);
+    } catch {
+      setCopiedId("");
+    }
+  }
+
   return (
-    <section className="edge-chat" aria-label="Cloudflare Keyless Chat">
-      <div className="edge-chat-toolbar">
-        <span>Cloudflare Edge · GLM-4.7-Flash <strong>Keyless</strong></span>
-        <div>
-          <span className="edge-chat-quota" aria-live="polite">
-            {quota ? `${quota.remaining}/30 questions remaining today` : "Checking daily quota…"}
-          </span>
-          <button type="button" onClick={onNewThread}>New thread</button>
-          <button type="button" onClick={() => { void clearHistory(); setMessageError(""); }} disabled={busy}>Clear history</button>
+    <div className="edge-chat-layout">
+      <aside className="edge-chat-sidebar" aria-label="Edge conversation threads">
+        <div className="edge-chat-sidebar-head">
+          <span>THREADS</span>
+          <button type="button" onClick={onNewThread} title="New thread">
+            <MessageSquarePlus size={14} /> New
+          </button>
         </div>
-      </div>
-      <div className="edge-chat-transcript" role="log" aria-live="polite" aria-label="Chat messages">
-        {messages.length === 0 ? (
-          <div className="edge-chat-empty">
-            <h2>Ask the edge agent</h2>
-            <p>History is stored in this user's Cloudflare Durable Object. Reconnect to the same thread to continue.</p>
+        <div className="edge-chat-thread-list" role="listbox" aria-label="Saved thread IDs">
+          {threads.map((id, idx) => (
+            <button
+              key={id}
+              type="button"
+              role="option"
+              aria-selected={id === threadId}
+              className={id === threadId ? "active" : ""}
+              onClick={() => onSelectThread(id)}
+            >
+              <span>Thread {threads.length - idx}</span>
+              <small>{id.slice(0, 8)}</small>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      <section className="edge-chat" aria-label="Cloudflare Keyless Chat">
+        <div className="edge-chat-toolbar">
+          <div className="edge-chat-title">
+            <span>Cloudflare Edge • GLM-4.7-Flash</span>
+            <StatusBadge status={busy ? "building" : quotaExhausted ? "error" : "ready"}>
+              {busy ? "Streaming" : quotaExhausted ? "Quota reached" : "Keyless"}
+            </StatusBadge>
           </div>
-        ) : messages.map(message => (
-          <article className="edge-chat-message" data-role={message.role} key={message.id}>
-            <p className="edge-chat-role">{message.role === "user" ? "You" : "GLM-4.7-Flash"}</p>
-            {message.parts.map((part, i) => part.type === "text"
-              ? <Streamdown key={i}>{part.text}</Streamdown>
-              : null)}
-          </article>
-        ))}
-        {busy ? <p className="edge-chat-working">Generating response…</p> : null}
-      </div>
-      {messageError ? <p className="edge-chat-error" role="alert">{messageError}</p> : null}
-      <form className="edge-chat-form" onSubmit={event => { void send(event); }}>
-        <label htmlFor="edge-chat-message">Message</label>
-        <textarea
-          id="edge-chat-message"
-          value={input}
-          onChange={event => setInput(event.target.value)}
-          maxLength={INPUT_LIMIT}
-          rows={3}
-          placeholder="What would you like to build?"
-          disabled={quota?.remaining === 0}
-        />
-        <div className="edge-chat-form-actions">
-          <span>{input.length}/{INPUT_LIMIT}</span>
-          {busy
-            ? <button type="button" onClick={() => stop()}>Stop</button>
-            : <button type="submit" disabled={!input.trim() || quota?.remaining === 0}>Send</button>}
+          <div>
+            <span className="edge-chat-quota" aria-live="polite">
+              {quota ? `${quota.remaining}/30 questions left today` : "Checking daily quota…"}
+            </span>
+            <button type="button" onClick={() => { void clearHistory(); setMessageError(""); }} disabled={busy}>
+              <Trash2 size={13} /> Clear history
+            </button>
+          </div>
         </div>
-      </form>
-    </section>
+
+        <div className="edge-chat-transcript" role="log" aria-live="polite" aria-label="Chat messages">
+          {messages.length === 0 ? (
+            <div className="edge-chat-empty">
+              <h2>Ask the edge agent</h2>
+              <p>History is stored in this user&apos;s Cloudflare Durable Object SQLite instance. Reconnect to the same thread to continue.</p>
+            </div>
+          ) : messages.map(message => {
+            const fullText = message.parts
+              .filter((part): part is { type: "text"; text: string } => part.type === "text")
+              .map(part => part.text)
+              .join("\n");
+            return (
+              <article className="edge-chat-message" data-role={message.role} key={message.id}>
+                <p className="edge-chat-role">{message.role === "user" ? "You" : "GLM-4.7-Flash"}</p>
+                {message.parts.map((part, i) => part.type === "text"
+                  ? <Streamdown key={i}>{part.text}</Streamdown>
+                  : null)}
+                {message.role !== "user" && fullText ? (
+                  <button
+                    type="button"
+                    className="message-copy"
+                    onClick={() => { void copyResponse(message.id, fullText); }}
+                  >
+                    {copiedId === message.id ? <Check size={11} /> : <Copy size={11} />}
+                    {copiedId === message.id ? "Copied" : "Copy response"}
+                  </button>
+                ) : null}
+              </article>
+            );
+          })}
+          {busy ? <p className="edge-chat-working">Generating response…</p> : null}
+        </div>
+
+        {quotaExhausted && (
+          <div className="edge-chat-error" role="status">
+            Daily 30-question Edge limit reached.{" "}
+            {onSwitchToByok && (
+              <button type="button" className="edge-chat-switch-link" onClick={onSwitchToByok}>
+                Switch to BYOK mode
+              </button>
+            )}
+          </div>
+        )}
+        {messageError ? <p className="edge-chat-error" role="alert">{messageError}</p> : null}
+
+        <form className="edge-chat-form" onSubmit={send}>
+          <label htmlFor="edge-chat-message">Message</label>
+          <textarea
+            id="edge-chat-message"
+            value={input}
+            onChange={event => setInput(event.target.value)}
+            maxLength={INPUT_LIMIT}
+            rows={3}
+            placeholder="What would you like to build?"
+            disabled={quotaExhausted}
+            onKeyDown={event => {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                void submitText();
+              }
+            }}
+          />
+          <div className="edge-chat-form-actions">
+            <span>{input.length}/{INPUT_LIMIT} · Shift + Enter for a new line</span>
+            {busy
+              ? <button type="button" onClick={() => stop()}><Square size={12} fill="currentColor" /> Stop</button>
+              : <button type="submit" disabled={!input.trim() || quotaExhausted}>Send</button>}
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 
-export default function KeylessChat() {
+export default function KeylessChat({ onSwitchToByok }: { onSwitchToByok?: () => void }) {
   const [threadId, setThreadId] = useState("");
+  const [threads, setThreads] = useState<string[]>([]);
   const [session, setSession] = useState<TokenResponse | null>(null);
   const [error, setError] = useState("");
   const hostValue = process.env.NEXT_PUBLIC_CF_AGENT_URL;
@@ -181,9 +295,15 @@ export default function KeylessChat() {
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(THREAD_STORAGE);
-      setThreadId(stored && /^[a-z0-9_-]{1,64}$/i.test(stored) ? stored : newThreadId());
+      const initial = stored && /^[a-z0-9_-]{1,64}$/i.test(stored) ? stored : newThreadId();
+      const list = readThreadList(initial);
+      saveThreadList(list);
+      setThreads(list);
+      setThreadId(initial);
     } catch {
-      setThreadId(newThreadId());
+      const initial = newThreadId();
+      setThreads([initial]);
+      setThreadId(initial);
     }
   }, []);
 
@@ -200,10 +320,17 @@ export default function KeylessChat() {
     return () => { active = false; };
   }, [threadId]);
 
-  function newThread() {
-    const id = newThreadId();
+  function selectThread(id: string) {
     try { window.localStorage.setItem(THREAD_STORAGE, id); } catch { /* optional thread metadata */ }
     setThreadId(id);
+  }
+
+  function newThread() {
+    const id = newThreadId();
+    const nextList = [id, ...threads.filter(item => item !== id)].slice(0, 12);
+    saveThreadList(nextList);
+    setThreads(nextList);
+    selectThread(id);
   }
 
   if (!hostValue || !/^https?:\/\//.test(hostValue)) {
@@ -214,10 +341,21 @@ export default function KeylessChat() {
     <div className="edge-chat-empty" role="alert">
       <p>{error}</p>
       <Link href="/login">Sign in</Link>
-      <button type="button" onClick={() => setThreadId(newThreadId())}>Retry with a new thread</button>
+      <button type="button" onClick={newThread}>Retry with a new thread</button>
     </div>
   );
   if (!session) return <div className="edge-chat-empty" role="status">Authorizing Edge chat…</div>;
 
-  return <EdgeConversation key={threadId} host={host} session={session} threadId={threadId} onNewThread={newThread} />;
+  return (
+    <EdgeConversation
+      key={threadId}
+      host={host}
+      session={session}
+      threadId={threadId}
+      threads={threads}
+      onSelectThread={selectThread}
+      onNewThread={newThread}
+      onSwitchToByok={onSwitchToByok}
+    />
+  );
 }

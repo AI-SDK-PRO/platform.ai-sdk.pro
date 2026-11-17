@@ -1,0 +1,144 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "User Account",
+      "description": "Private user metadata stored per authenticated Firebase user under /users/{userId}/private/account. Never stores API keys or third-party credentials.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Authentication user ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name shown in Workspace.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified account email address.",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last account metadata sync."
+        }
+      },
+      "required": ["uid", "email", "updatedAt"]
+    },
+    "PromptPreset": {
+      "title": "Prompt Preset",
+      "description": "Reusable prompt template saved by the user for AI Playground without storing any API keys.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Document identifier.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Authentication UID of the preset owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short preset title.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Prompt text prefilled in Playground.",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "providerPreference": {
+          "type": "string",
+          "description": "Preferred provider or Edge mode label (never a secret).",
+          "enum": ["edge-glm", "openai", "anthropic", "google"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["id", "ownerId", "title", "prompt", "providerPreference", "createdAt", "updatedAt"]
+    },
+    "WorkspaceNote": {
+      "title": "Workspace Note",
+      "description": "User-owned architecture or deployment note linked to a workspace repository.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Document identifier.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Authentication UID of the note owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "repositorySlug": {
+          "type": "string",
+          "description": "Optional repository reference (owner/repo).",
+          "minLength": 0,
+          "maxLength": 140
+        },
+        "body": {
+          "type": "string",
+          "description": "Plain-text note body.",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["id", "ownerId", "body", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Owner-isolated private user metadata document (`docId == 'account'`)."
+    },
+    "/users/{userId}/presets/{presetId}": {
+      "schema": { "$ref": "#/entities/PromptPreset" },
+      "description": "Owner-isolated prompt presets usable in AI Playground."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/WorkspaceNote" },
+      "description": "Owner-isolated architecture and deployment notes."
+    }
+  }
+}

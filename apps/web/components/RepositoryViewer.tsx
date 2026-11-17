@@ -4,8 +4,9 @@ import Link from "next/link";
 import RegistryDeployment from "./RegistryDeployment";
 import PreviewDeployment from "./PreviewDeployment";
 import {
-  ArrowLeft,
+  Check,
   CircleAlert,
+  Copy,
   FileCode2,
   GitBranch,
   Github,
@@ -13,10 +14,9 @@ import {
   LoaderCircle,
   LockKeyhole,
   RefreshCw,
-  ShieldCheck,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Brand } from "@aisdkpro/ui";
+import { Brand, GeistCard, StatusBadge } from "@aisdkpro/ui";
 import type {
   RepositoryDetail,
   RepositoryFile,
@@ -198,10 +198,6 @@ export default function RepositoryViewer({ repositoryId }: { repositoryId: strin
       {detail && (
         <>
           <section className="repository-viewer-header">
-            <Link href="/deploy" className="button secondary">
-              Cloudflare Deploy
-            </Link>
-
             <div className="repository-viewer-heading-row">
               <div className="repository-viewer-title-block">
                 <span className="repository-viewer-eyebrow">IMPORTED SNAPSHOT</span>
@@ -278,22 +274,63 @@ export default function RepositoryViewer({ repositoryId }: { repositoryId: strin
             ))}
           </nav>
 
-          {activeTab === "overview" && <section className="repository-viewer-scope-note">
-            <ShieldCheck size={16} />
-            <p>
-              This view is a server-persisted, read-only snapshot: up to {detail.snapshotLimits.maxFiles} files,
-              {" "}{formatBytes(detail.snapshotLimits.maxFileBytes)} per file, and {formatBytes(detail.snapshotLimits.maxTotalBytes)} total.
-              {" "}{detail.repository.skippedFiles} files were skipped during import; binaries, dependencies, and sensitive paths are not shown.
-            </p>
-            {detail.repository.snapshotTruncated && <span>Snapshot cap reached</span>}
-          </section>}
-
           {activeTab === "overview" && (
-            <section className="repository-viewer-overview-actions">
-              <p>Agent Registry and preview readiness must be checked before deployment. Imported source is never executed in the web container.</p>
-              <button type="button" className="repository-viewer-button repository-viewer-button-primary" onClick={() => setActiveTab("deployments")}>
-                Review deployment options
-              </button>
+            <section className="repository-viewer-overview-grid" aria-label="Repository overview">
+              <GeistCard className="repository-viewer-overview-card">
+                <div className="repository-viewer-overview-card-head">
+                  <h2>Snapshot boundary</h2>
+                  <StatusBadge status={detail.repository.snapshotTruncated ? "building" : "ready"}>
+                    {detail.repository.snapshotTruncated ? "Cap reached" : "Complete"}
+                  </StatusBadge>
+                </div>
+                <p>
+                  Read-only server snapshot capped at {detail.snapshotLimits.maxFiles} files,{" "}
+                  {formatBytes(detail.snapshotLimits.maxFileBytes)} per file, and{" "}
+                  {formatBytes(detail.snapshotLimits.maxTotalBytes)} total.{" "}
+                  {detail.repository.skippedFiles} sensitive or binary paths skipped.
+                </p>
+                <button
+                  type="button"
+                  className="repository-viewer-button repository-viewer-button-secondary"
+                  onClick={() => setActiveTab("files")}
+                >
+                  Inspect {detail.files.length} source files
+                </button>
+              </GeistCard>
+
+              <GeistCard className="repository-viewer-overview-card">
+                <div className="repository-viewer-overview-card-head">
+                  <h2>Runtime isolation</h2>
+                  <StatusBadge status="ready">Isolated</StatusBadge>
+                </div>
+                <p>
+                  Imported repository code is never executed inside the web runtime container and has no access to Docker, Neon, or SSH keys.
+                </p>
+                <button
+                  type="button"
+                  className="repository-viewer-button repository-viewer-button-secondary"
+                  onClick={() => setActiveTab("activity")}
+                >
+                  Review security &amp; tokens
+                </button>
+              </GeistCard>
+
+              <GeistCard className="repository-viewer-overview-card">
+                <div className="repository-viewer-overview-card-head">
+                  <h2>Registry &amp; preview</h2>
+                  <StatusBadge status="edge">Cloudflare ready</StatusBadge>
+                </div>
+                <p>
+                  Verify agent registry readiness and trigger isolated preview or legacy workflow dispatches without exposing credentials.
+                </p>
+                <button
+                  type="button"
+                  className="repository-viewer-button repository-viewer-button-primary"
+                  onClick={() => setActiveTab("deployments")}
+                >
+                  Review deployment options
+                </button>
+              </GeistCard>
             </section>
           )}
 
@@ -400,14 +437,16 @@ export default function RepositoryViewer({ repositoryId }: { repositoryId: strin
                         try {
                           await navigator.clipboard.writeText(fileState.file.content);
                           setCopyState("copied");
+                          setTimeout(() => setCopyState("idle"), 1600);
                         } catch {
                           setCopyState("failed");
                         }
                       }}
                     >
-                      Copy code
+                      {copyState === "copied" ? <Check size={13} /> : <Copy size={13} />}
+                      {copyState === "copied" ? "Copied" : "Copy code"}
                     </button>
-                    <span role="status">{copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy unavailable" : ""}</span>
+                    {copyState === "failed" && <span role="status">Copy unavailable</span>}
                   </div>
                   <pre className="repository-viewer-code"><code>{fileState.file.content}</code></pre>
                 </>

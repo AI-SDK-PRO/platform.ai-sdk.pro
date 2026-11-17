@@ -26,6 +26,7 @@
   "migrations": [{"tag": "v1", "new_sqlite_classes": ["BuildSandbox"]}],
   "vars": {
     "API_ORIGIN": "https://deploy-staging.ai-sdk.pro",
+    "PLATFORM_ORIGINS": "https://platform.ai-sdk.pro",
     "PROJECT_DOMAIN": "ai-sdk.pro",
     "CLOUDFLARE_ACCOUNT_ID": "2d92bd5b25768fa9093d6adc0a8887fc",
     "DISPATCH_NAMESPACE": "aisdkpro-platform-staging",

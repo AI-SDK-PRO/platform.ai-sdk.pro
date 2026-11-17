@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { StatusBadge } from "@aisdkpro/ui";
 import LLMChat from "./llm";
 import KeylessChat from "./KeylessChat";
+import SiteHeader from "./SiteHeader";
 import {
   getBrowserSessionSnapshot,
   getServerBrowserSessionSnapshot,
@@ -26,6 +28,7 @@ export default function ChatDualMode() {
   useEffect(() => {
     void refreshBrowserSession({ reason: "initial" }).catch(() => undefined);
   }, []);
+
   useEffect(() => {
     if (!choseMode.current && edgeConfigured && session.signedIn) {
       setMode("keyless");
@@ -41,8 +44,14 @@ export default function ChatDualMode() {
 
   return (
     <>
+      <SiteHeader active="chat" />
       <nav className="chat-mode-bar" aria-label="Chat model and credential mode">
-        <span>AI Playground</span>
+        <div className="chat-mode-brand">
+          <span>AI Playground</span>
+          <StatusBadge status={mode === "keyless" ? "edge" : "byok"}>
+            {mode === "keyless" ? "Cloudflare Edge" : "BYOK"}
+          </StatusBadge>
+        </div>
         <div className="chat-mode-options">
           <button
             type="button"
@@ -64,13 +73,17 @@ export default function ChatDualMode() {
         </div>
         <span className="chat-mode-state">
           {edgeConfigured
-            ? session.signedIn ? "Signed in · Edge available" : <Link href="/login">Sign in for Keyless</Link>
-            : "Edge not configured"}
+            ? session.signedIn
+              ? "Signed in · Edge available"
+              : <Link href="/login">Sign in for Keyless</Link>
+            : "Edge worker URL not configured"}
         </span>
       </nav>
-      {mode === "keyless" && edgeConfigured && session.signedIn
-        ? <KeylessChat />
-        : <LLMChat />}
+      {mode === "keyless" && edgeConfigured && session.signedIn ? (
+        <KeylessChat onSwitchToByok={() => choose("byok")} />
+      ) : (
+        <LLMChat showHeader={false} />
+      )}
     </>
   );
 }

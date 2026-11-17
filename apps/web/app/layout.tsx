@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans_Thai } from "next/font/google";
 import "@aisdkpro/ui/styles.css";
 import SessionActivity from "../components/SessionActivity";
+import FirebaseProvider from "../components/FirebaseProvider";
 import {
   HOME_PAGE_TITLE,
   SITE_DESCRIPTION,
@@ -51,7 +52,9 @@ export default function RootLayout({
             __html: JSON.stringify(websiteStructuredData),
           }}
         />
-        <SessionActivity>{children}</SessionActivity>
+        <FirebaseProvider>
+          <SessionActivity>{children}</SessionActivity>
+        </FirebaseProvider>
       </body>
     </html>
   );

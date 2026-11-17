@@ -24,6 +24,15 @@ function initials(user: PlatformSession["user"]): string {
     .toUpperCase();
 }
 
+function sectionLabel(pathname: string): string {
+  if (pathname.startsWith("/workspace/account")) return "Account & GitHub";
+  if (pathname.startsWith("/workspace/storage")) return "Storage";
+  if (pathname.startsWith("/workspace/deploy")) return "Deployments";
+  if (pathname.startsWith("/workspace/tokens")) return "API tokens";
+  if (pathname.startsWith("/workspace/repositories/")) return "Repository snapshot";
+  return "Repositories";
+}
+
 export default function WorkspaceChrome({
   children,
   user,
@@ -58,9 +67,9 @@ export default function WorkspaceChrome({
           </Link>
           <Link href="/workspace/account" className={pathname.startsWith("/workspace/account") ? "workspace-nav-item active" : "workspace-nav-item"}>
             <UserRound size={16} />
-            <span>Account & GitHub</span>
+            <span>Account &amp; GitHub</span>
           </Link>
-          <Link href="/workspace/tokens" className="workspace-nav-item">
+          <Link href="/workspace/tokens" className={pathname.startsWith("/workspace/tokens") ? "workspace-nav-item active" : "workspace-nav-item"}>
             <KeyRound size={16} />
             <span>API tokens</span>
           </Link>
@@ -84,17 +93,27 @@ export default function WorkspaceChrome({
 
       <section className="workspace-main">
         <header className="workspace-topbar">
-          <div className="workspace-breadcrumb">
-            <Link href="/workspace">Workspace</Link>
-            <ChevronRight size={14} />
-            <span>{pathname.startsWith("/workspace/account") ? "Account" : pathname.startsWith("/workspace/storage") ? "Storage" : pathname.startsWith("/workspace/deploy") ? "Deployments" : "Repositories"}</span>
+          <div className="workspace-topbar-left">
+            <div className="workspace-breadcrumb">
+              <Link href="/">ai-sdk.pro</Link>
+              <ChevronRight size={14} />
+              <Link href="/workspace">Workspace</Link>
+              <ChevronRight size={14} />
+              <span>{sectionLabel(pathname)}</span>
+            </div>
+            <nav className="workspace-context-links" aria-label="Platform sections">
+              <Link href="/workspace" aria-current={pathname.startsWith("/workspace") ? "page" : undefined}>Workspace</Link>
+              <Link href="/chat">Chat</Link>
+              <Link href="/templates">Templates</Link>
+              <Link href="/docs/getting-started">Docs</Link>
+            </nav>
           </div>
           <div className="workspace-account">
             {user ? (
               <>
                 <span className="workspace-account-copy">
                   <strong>{displayName(user)}</strong>
-                  <span>GitHub account</span>
+                  <span>Platform session</span>
                 </span>
                 <span className="workspace-avatar" aria-hidden="true">
                   {initials(user)}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Github, KeyRound, Link2, LoaderCircle, LockKeyhole, MailCheck, ShieldCheck } from "lucide-react";
 import WorkspaceChrome from "./WorkspaceChrome";
+import FirebaseSyncPanel from "./FirebaseSyncPanel";
 import { authClient } from "../lib/auth-client";
 import type { PlatformSession, PlatformStatus } from "../lib/platform-types";
 
@@ -150,6 +151,7 @@ export default function WorkspaceAccount() {
           </div>
         )}
       </>}
+      <FirebaseSyncPanel />
     </section>
   </WorkspaceChrome>;
 }

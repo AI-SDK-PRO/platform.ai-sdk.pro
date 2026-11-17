@@ -11,7 +11,16 @@ export { DeploymentWorkflow, BuildSandbox, ContainerProxy } from './pipeline.js'
 const projectColumns = 'id,name,repo_full_name,repo_id,branch,framework,build_command,output_dir,auto_deploy,active_deployment_id,created_at';
 const quotaError = (error) => /(?:project|deployment|concurrent|variable|domain)_quota/.test(error.message);
 const outputPath = /^(?=.{1,96}$)[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/;
-const callback = (env) => `${env.API_ORIGIN}/auth/github/callback`;
+const callback = (env, origin = env.API_ORIGIN) => `${origin}/auth/github/callback`;
+function allowedApiOrigins(env) {
+  const origins = new Set();
+  if (env.API_ORIGIN) origins.add(env.API_ORIGIN);
+  for (const item of String(env.PLATFORM_ORIGINS ?? '').split(',')) {
+    const trimmed = item.trim();
+    if (trimmed) origins.add(trimmed);
+  }
+  return origins;
+}
 
 async function body(request) {
   try { return JSON.parse(decode.decode(await readLimited(request, 32_768))); }
@@ -24,7 +33,7 @@ async function auth(request, env, url) {
     const verifier = random();
     const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', utf8.encode(verifier))));
     const githubUrl = new URL('https://github.com/login/oauth/authorize');
-    githubUrl.search = new URLSearchParams({ client_id: env.GITHUB_CLIENT_ID, redirect_uri: callback(env), state,
+    githubUrl.search = new URLSearchParams({ client_id: env.GITHUB_CLIENT_ID, redirect_uri: callback(env, url.origin), state,
       code_challenge: challenge, code_challenge_method: 'S256' });
     const headers = new Headers({ Location: githubUrl.href, 'Cache-Control': 'no-store' });
     headers.append('Set-Cookie', cookie('oauth', state + verifier, 600));
@@ -35,7 +44,7 @@ async function auth(request, env, url) {
   const code = url.searchParams.get('code');
   if (saved?.length !== 128 || saved.slice(0, 64) !== url.searchParams.get('state') || !code)
     throw new HttpError(400, 'Invalid OAuth state.');
-  const token = await githubExchange(env, code, saved.slice(64), callback(env));
+  const token = await githubExchange(env, code, saved.slice(64), callback(env, url.origin));
   const profile = await github('/user', token);
   const githubId = typeof profile.id === 'number' ? profile.id : Number(profile.id);
   if (!Number.isSafeInteger(githubId) || typeof profile.login !== 'string') throw new HttpError(502, 'Invalid GitHub profile.');
@@ -363,7 +372,7 @@ async function internalWorkspace(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.origin !== env.API_ORIGIN) return json({ error: 'Unknown platform host.' }, 404);
+    if (!allowedApiOrigins(env).has(url.origin)) return json({ error: 'Unknown platform host.' }, 404);
     try {
       if (url.pathname === '/health' && request.method === 'GET') {
         await first(env, 'SELECT 1');
