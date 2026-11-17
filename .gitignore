@@ -119,3 +119,7 @@ client/public/__manus__/version.json
 # Python packaging/test caches
 __pycache__/
 *.py[cod]
+
+# Bundled CLI templates synced on build
+packages/create-webapp/templates/
+

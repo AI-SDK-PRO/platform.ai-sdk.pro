@@ -858,3 +858,41 @@
     transform: none;
   }
 }
+
+.starter-cli-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.starter-cli-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.starter-cli-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.starter-cli-title svg {
+  color: var(--accent);
+}
+
+.starter-cli-copy p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+

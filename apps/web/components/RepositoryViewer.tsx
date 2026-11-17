@@ -16,7 +16,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Brand, GeistCard, StatusBadge } from "@aisdkpro/ui";
+import { GeistCard, StatusBadge } from "@aisdkpro/ui";
+import SiteHeader from "./SiteHeader";
 import type {
   RepositoryDetail,
   RepositoryFile,
@@ -147,20 +148,20 @@ export default function RepositoryViewer({ repositoryId }: { repositoryId: strin
   );
 
   return (
-    <main className="repository-viewer-page">
-      <header className="repository-viewer-topbar">
-        <div className="repository-viewer-topbar-inner">
-          <Brand />
-          <div className="repository-viewer-topbar-links">
-            <nav className="repository-viewer-context-links" aria-label="Platform navigation">
-              <Link href="/workspace" aria-current="page">Workspace</Link>
-              <Link href="/chat">Chat</Link>
-              <Link href="/templates">Templates</Link>
-              <Link href="/docs/getting-started">Docs</Link>
-            </nav>
+    <>
+      <SiteHeader active="workspace" />
+      <main className="repository-viewer-page">
+        <div className="repository-viewer-subbar">
+          <div className="repository-viewer-topbar-inner">
+            <div className="workspace-breadcrumb">
+              <Link href="/">ai-sdk.pro</Link>
+              <span>/</span>
+              <Link href="/workspace">Workspace</Link>
+              <span>/</span>
+              <span>{detail ? detail.repository.fullName : "Repository snapshot"}</span>
+            </div>
           </div>
         </div>
-      </header>
 
       {detailState.kind === "loading" && (
         <section className="repository-viewer-state">
@@ -455,6 +456,7 @@ export default function RepositoryViewer({ repositoryId }: { repositoryId: strin
           </section>}
         </>
       )}
-    </main>
+      </main>
+    </>
   );
 }

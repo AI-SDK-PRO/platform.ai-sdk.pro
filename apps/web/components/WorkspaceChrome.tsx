@@ -7,7 +7,7 @@ import {
   ArrowUpRight, ChevronRight, Database, KeyRound, Library,
   HardDrive, LoaderCircle, LogOut, Rocket, ShieldCheck, UserRound,
 } from "lucide-react";
-import { Brand } from "@aisdkpro/ui";
+import SiteHeader from "./SiteHeader";
 import type { PlatformSession } from "../lib/platform-types";
 
 function displayName(user: PlatformSession["user"]): string {
@@ -45,103 +45,106 @@ export default function WorkspaceChrome({
   logoutPending: boolean;
 }) {
   const pathname = usePathname();
+  const headerActive = pathname.startsWith("/workspace/deploy") ? "deploy" : "workspace";
   return (
-    <main className="workspace-shell">
-      <aside className="workspace-sidebar">
-        <div className="workspace-sidebar-top">
-          <Brand />
-          <span className="workspace-product-label">WORKSPACE</span>
-        </div>
-        <nav className="workspace-nav" aria-label="Workspace navigation">
-          <Link href="/workspace" className={pathname === "/workspace" ? "workspace-nav-item active" : "workspace-nav-item"}>
-            <Library size={16} />
-            <span>Repositories</span>
-          </Link>
-          <Link href="/workspace/deploy" className={pathname.startsWith("/workspace/deploy") ? "workspace-nav-item active" : "workspace-nav-item"}>
-            <Rocket size={16} />
-            <span>Deployments</span>
-          </Link>
-          <Link href="/workspace/storage" className={pathname.startsWith("/workspace/storage") ? "workspace-nav-item active" : "workspace-nav-item"}>
-            <HardDrive size={16} />
-            <span>Storage</span>
-          </Link>
-          <Link href="/workspace/account" className={pathname.startsWith("/workspace/account") ? "workspace-nav-item active" : "workspace-nav-item"}>
-            <UserRound size={16} />
-            <span>Account &amp; GitHub</span>
-          </Link>
-          <Link href="/workspace/tokens" className={pathname.startsWith("/workspace/tokens") ? "workspace-nav-item active" : "workspace-nav-item"}>
-            <KeyRound size={16} />
-            <span>API tokens</span>
-          </Link>
-          <Link href="/docs/architecture" className="workspace-nav-item">
-            <Database size={16} />
-            <span>How snapshots work</span>
-            <ArrowUpRight className="workspace-nav-external" size={12} />
-          </Link>
-        </nav>
-        <div className="workspace-sidebar-note">
-          <ShieldCheck size={15} />
-          <p>
-            Import a repository snapshot to inspect its files. Registered projects can be deployed from the workspace.
-          </p>
-        </div>
-        <div className="workspace-sidebar-footer">
-          <span className="workspace-sidebar-kicker">AI-SDK.PRO</span>
-          <span>Repository import preview</span>
-        </div>
-      </aside>
+    <>
+      <SiteHeader active={headerActive} />
+      <main className="workspace-shell">
+        <aside className="workspace-sidebar">
+          <div className="workspace-sidebar-top">
+            <span className="workspace-product-label">UNIFIED WORKSPACE</span>
+          </div>
+          <nav className="workspace-nav" aria-label="Workspace navigation">
+            <Link href="/workspace" className={pathname === "/workspace" ? "workspace-nav-item active" : "workspace-nav-item"}>
+              <Library size={16} />
+              <span>Repositories</span>
+            </Link>
+            <Link href="/workspace/deploy" className={pathname.startsWith("/workspace/deploy") ? "workspace-nav-item active" : "workspace-nav-item"}>
+              <Rocket size={16} />
+              <span>Deployments</span>
+            </Link>
+            <Link href="/workspace/storage" className={pathname.startsWith("/workspace/storage") ? "workspace-nav-item active" : "workspace-nav-item"}>
+              <HardDrive size={16} />
+              <span>Storage</span>
+            </Link>
+            <Link href="/workspace/account" className={pathname.startsWith("/workspace/account") ? "workspace-nav-item active" : "workspace-nav-item"}>
+              <UserRound size={16} />
+              <span>Account &amp; GitHub</span>
+            </Link>
+            <Link href="/workspace/tokens" className={pathname.startsWith("/workspace/tokens") ? "workspace-nav-item active" : "workspace-nav-item"}>
+              <KeyRound size={16} />
+              <span>API tokens</span>
+            </Link>
+            <Link href="/docs/architecture" className="workspace-nav-item">
+              <Database size={16} />
+              <span>How snapshots work</span>
+              <ArrowUpRight className="workspace-nav-external" size={12} />
+            </Link>
+          </nav>
+          <div className="workspace-sidebar-note">
+            <ShieldCheck size={15} />
+            <p>
+              Import a repository snapshot to inspect its files. Registered projects can be deployed from the workspace.
+            </p>
+          </div>
+          <div className="workspace-sidebar-footer">
+            <span className="workspace-sidebar-kicker">AI-SDK.PRO</span>
+            <span>Single-origin platform workspace</span>
+          </div>
+        </aside>
 
-      <section className="workspace-main">
-        <header className="workspace-topbar">
-          <div className="workspace-topbar-left">
-            <div className="workspace-breadcrumb">
-              <Link href="/">ai-sdk.pro</Link>
-              <ChevronRight size={14} />
-              <Link href="/workspace">Workspace</Link>
-              <ChevronRight size={14} />
-              <span>{sectionLabel(pathname)}</span>
+        <section className="workspace-main">
+          <header className="workspace-topbar">
+            <div className="workspace-topbar-left">
+              <div className="workspace-breadcrumb">
+                <Link href="/">ai-sdk.pro</Link>
+                <ChevronRight size={14} />
+                <Link href="/workspace">Workspace</Link>
+                <ChevronRight size={14} />
+                <span>{sectionLabel(pathname)}</span>
+              </div>
+              <nav className="workspace-context-links" aria-label="Platform sections">
+                <Link href="/workspace" aria-current={pathname.startsWith("/workspace") ? "page" : undefined}>Workspace</Link>
+                <Link href="/chat">Chat</Link>
+                <Link href="/templates">Templates</Link>
+                <Link href="/docs/getting-started">Docs</Link>
+              </nav>
             </div>
-            <nav className="workspace-context-links" aria-label="Platform sections">
-              <Link href="/workspace" aria-current={pathname.startsWith("/workspace") ? "page" : undefined}>Workspace</Link>
-              <Link href="/chat">Chat</Link>
-              <Link href="/templates">Templates</Link>
-              <Link href="/docs/getting-started">Docs</Link>
-            </nav>
-          </div>
-          <div className="workspace-account">
-            {user ? (
-              <>
-                <span className="workspace-account-copy">
-                  <strong>{displayName(user)}</strong>
-                  <span>Platform session</span>
-                </span>
-                <span className="workspace-avatar" aria-hidden="true">
-                  {initials(user)}
-                </span>
-                <button
-                  type="button"
-                  className="workspace-icon-button"
-                  onClick={onLogout}
-                  disabled={logoutPending}
-                  aria-label="Sign out"
-                  title="Sign out"
-                >
-                  {logoutPending ? (
-                    <LoaderCircle className="workspace-spin" size={15} />
-                  ) : (
-                    <LogOut size={15} />
-                  )}
-                </button>
-              </>
-            ) : (
-              <Link href="/login" className="workspace-sign-in-link">
-                Sign in
-              </Link>
-            )}
-          </div>
-        </header>
-        <div className="workspace-content">{children}</div>
-      </section>
-    </main>
+            <div className="workspace-account">
+              {user ? (
+                <>
+                  <span className="workspace-account-copy">
+                    <strong>{displayName(user)}</strong>
+                    <span>Platform session</span>
+                  </span>
+                  <span className="workspace-avatar" aria-hidden="true">
+                    {initials(user)}
+                  </span>
+                  <button
+                    type="button"
+                    className="workspace-icon-button"
+                    onClick={onLogout}
+                    disabled={logoutPending}
+                    aria-label="Sign out"
+                    title="Sign out"
+                  >
+                    {logoutPending ? (
+                      <LoaderCircle className="workspace-spin" size={15} />
+                    ) : (
+                      <LogOut size={15} />
+                    )}
+                  </button>
+                </>
+              ) : (
+                <Link href="/login" className="workspace-sign-in-link">
+                  Sign in
+                </Link>
+              )}
+            </div>
+          </header>
+          <div className="workspace-content">{children}</div>
+        </section>
+      </main>
+    </>
   );
 }

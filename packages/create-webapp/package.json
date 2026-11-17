@@ -1,0 +1,49 @@
+{
+  "name": "create-webapp",
+  "version": "0.1.0",
+  "description": "Scaffold ai-sdk.pro starter templates (npx create-webapp@latest aisdkpro).",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "aisdkpro",
+    "ai-sdk",
+    "create-webapp",
+    "nextjs",
+    "starter",
+    "cli"
+  ],
+  "files": [
+    "dist",
+    "templates",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "create-webapp": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "sync-templates": "node scripts/sync-templates.mjs",
+    "build": "node scripts/sync-templates.mjs && tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "publish:dry-run": "npm publish --dry-run --access public"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.0",
+    "typescript": "5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

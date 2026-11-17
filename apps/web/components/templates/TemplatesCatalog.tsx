@@ -1,7 +1,8 @@
 "use client";
 
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, Terminal } from "lucide-react";
 import { useMemo, useState } from "react";
+import { InstallCommand } from "@aisdkpro/ui";
 import type { StarterCategory, StarterTemplate } from "@/lib/starter-catalog";
 import StarterCard from "./StarterCard";
 
@@ -70,6 +71,19 @@ export default function TemplatesCatalog({
             ทุกตัวมี source archive จริง setup ที่คัดลอกได้
             และทางเลือกให้คุณตรวจสอบ ก่อนเปิด DevStack
           </p>
+        </div>
+
+        <div className="starter-cli-banner" aria-label="Scaffold with create-webapp CLI">
+          <div className="starter-cli-copy">
+            <span className="starter-cli-title">
+              <Terminal size={14} aria-hidden="true" />
+              สร้างโปรเจกต์เริ่มต้นจาก Registry CLI
+            </span>
+            <p>
+              รันคำสั่งเดียวเพื่อเลือกทั้ง 3 starters ของ ai-sdk.pro พร้อมไฟล์ `.env.example` ที่ปลอดภัย
+            </p>
+          </div>
+          <InstallCommand command="npx create-webapp@latest aisdkpro" />
         </div>
 
         <div className="starter-catalog-toolbar">

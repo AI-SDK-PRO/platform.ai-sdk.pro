@@ -1,5 +1,5 @@
 "use client";
-import { Streamdown } from "streamdown";
+import { LazyStreamdown } from "./LazyStreamdown";
 import { CodeBlock } from "@aisdkpro/ui";
 export function MarkdownContent({ content }: { content: string }) {
   const parts = content.split(/(```[\s\S]*?```)/g);
@@ -20,7 +20,7 @@ export function MarkdownContent({ content }: { content: string }) {
             />
           );
         }
-        return <Streamdown key={index}>{part}</Streamdown>;
+        return <LazyStreamdown key={index}>{part}</LazyStreamdown>;
       })}
     </div>
   );

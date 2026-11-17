@@ -5,7 +5,7 @@ import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { Check, Copy, MessageSquarePlus, Square, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Streamdown } from "streamdown";
+import { LazyStreamdown } from "./LazyStreamdown";
 import { StatusBadge } from "@aisdkpro/ui";
 
 type TokenResponse = { token: string; userId: string; threadId: string; expiresAt: string };
@@ -226,7 +226,7 @@ function EdgeConversation({
               <article className="edge-chat-message" data-role={message.role} key={message.id}>
                 <p className="edge-chat-role">{message.role === "user" ? "You" : "GLM-4.7-Flash"}</p>
                 {message.parts.map((part, i) => part.type === "text"
-                  ? <Streamdown key={i}>{part.text}</Streamdown>
+                  ? <LazyStreamdown key={i}>{part.text}</LazyStreamdown>
                   : null)}
                 {message.role !== "user" && fullText ? (
                   <button

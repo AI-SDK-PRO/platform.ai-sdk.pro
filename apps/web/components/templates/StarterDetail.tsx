@@ -138,7 +138,7 @@ export default function StarterDetail({
               </p>
               <div className="starter-code-wrap">
                 <CodeBlock
-                  code={template.setup}
+                  code={`npx create-webapp@latest aisdkpro --template ${template.slug}\n\n# หรือดาวน์โหลด archive แล้วรันในเครื่อง:\n${template.setup}`}
                   filename="terminal"
                   language="bash"
                 />

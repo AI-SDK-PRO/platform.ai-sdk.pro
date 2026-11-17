@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, Github, LoaderCircle, ShieldCheck } from "lucide-react";
+import { AlertCircle, Github, LoaderCircle, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Brand } from "@aisdkpro/ui";
 import EmailAuthPanel from "./EmailAuthPanel";
+import SiteHeader from "./SiteHeader";
 import { authClient } from "../lib/auth-client";
 import {
   getBrowserSessionSnapshot,
@@ -130,16 +130,10 @@ export default function AuthLogin({initialMode = "sign-in"}: {initialMode?: "sig
     statusState.kind === "ready" ? statusState.status.missingConfiguration : [];
 
   return (
-    <main className="auth-page">
-      <header className="auth-topbar">
-        <Brand />
-        <Link href="/" className="auth-back-link">
-          <ArrowLeft size={14} />
-          Back to ai-sdk.pro
-        </Link>
-      </header>
-
-      <div className="auth-stage">
+    <>
+      <SiteHeader />
+      <main className="auth-page">
+        <div className="auth-stage">
         <section className="auth-card" aria-labelledby="login-title">
           <div className="auth-card-mark" aria-hidden="true">
             <Github size={25} strokeWidth={1.8} />
@@ -247,5 +241,6 @@ export default function AuthLogin({initialMode = "sign-in"}: {initialMode?: "sig
         </section>
       </div>
     </main>
+    </>
   );
 }

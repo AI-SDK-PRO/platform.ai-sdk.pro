@@ -7,7 +7,11 @@ export default defineConfig({
   test: {
     // Cloudflare platform uses node:test and node:sqlite, not Vitest.
     // Its fixtures run in a separate isolated job.
-    exclude: [...configDefaults.exclude, "infra/cloudflare-platform/test/**"],
+    exclude: [
+      ...configDefaults.exclude,
+      "infra/cloudflare-platform/test/**",
+      "packages/create-webapp/templates/**",
+    ],
   },
   resolve: {
     alias: {

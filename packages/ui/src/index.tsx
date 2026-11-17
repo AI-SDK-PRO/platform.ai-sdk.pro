@@ -143,8 +143,8 @@ export function InstallCommand({
 }
 const searchItems = [
   {
-    title: "Templates",
-    desc: "Runnable starters, source downloads and DevStack handoff",
+    title: "Templates & CLI (npx create-webapp@latest aisdkpro)",
+    desc: "Runnable starters, ZIP downloads and create-webapp CLI registry",
     href: "/templates",
     category: "Learn",
   },
@@ -286,7 +286,12 @@ export function Header({
                 Deploy
               </Link>
             )}
-            <Link href="/workspace" onClick={() => setMenu(false)}>
+            <Link
+              href="/workspace"
+              className={active === "workspace" ? "active" : ""}
+              aria-current={active === "workspace" ? "page" : undefined}
+              onClick={() => setMenu(false)}
+            >
               Workspace
             </Link>
             <Link href="/#features" onClick={() => setMenu(false)}>

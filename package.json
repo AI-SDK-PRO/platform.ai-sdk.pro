@@ -6,13 +6,14 @@
     "apps/web",
     "apps/docs",
     "packages/ui",
-    "packages/sdk"
+    "packages/sdk",
+    "packages/create-webapp"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=apps/web",
+    "dev": "{ test -f packages/sdk/dist/index.js || npm run build --workspace=packages/sdk; } && npm run dev --workspace=apps/web",
     "dev:docs": "npm run dev --workspace=apps/docs",
-    "build": "npm run build --workspace=packages/sdk && npm run build --workspace=apps/web",
-    "typecheck": "npm run typecheck --workspace=packages/ui && npm run typecheck --workspace=packages/sdk && npm run typecheck --workspace=apps/web",
+    "build": "npm run build --workspace=packages/sdk && npm run build --workspace=packages/create-webapp && npm run build --workspace=apps/web",
+    "typecheck": "npm run typecheck --workspace=packages/ui && npm run typecheck --workspace=packages/sdk && npm run typecheck --workspace=packages/create-webapp && npm run typecheck --workspace=apps/web",
     "lint": "npm run typecheck --workspace=apps/web",
     "check": "npm run typecheck",
     "test": "vitest run",

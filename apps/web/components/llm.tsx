@@ -17,7 +17,7 @@ import {
   Square,
   Wrench,
 } from "lucide-react";
-import { Streamdown } from "streamdown";
+import { LazyStreamdown } from "./LazyStreamdown";
 import { BrandMark } from "@aisdkpro/ui";
 import { APP_VERSION } from "../lib/version";
 import ProviderSettings from "./ProviderSettings";
@@ -403,7 +403,7 @@ export default function LLMChat({
                           if (part.type === "text")
                             return (
                               <div className="assistant-body" key={index}>
-                                <Streamdown>{part.text}</Streamdown>
+                                <LazyStreamdown>{part.text}</LazyStreamdown>
                               </div>
                             );
                           if (isToolUIPart(part)) {

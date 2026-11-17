@@ -3659,10 +3659,10 @@ body {
 .workspace-sidebar {
   width: 252px;
   flex: 0 0 252px;
-  min-height: 100dvh;
+  min-height: calc(100dvh - 69px);
   display: flex;
   flex-direction: column;
-  padding: 26px 18px 20px;
+  padding: 20px 18px;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   position: relative;
@@ -3671,8 +3671,8 @@ body {
 .workspace-sidebar-top {
   display: flex;
   flex-direction: column;
-  gap: 17px;
-  padding: 0 9px 27px;
+  gap: 8px;
+  padding: 0 9px 16px;
   border-bottom: 1px solid var(--border);
 }
 .workspace-sidebar-top .brand {
@@ -5084,4 +5084,14 @@ body {
   .repository-viewer-overview-grid {
     grid-template-columns: 1fr;
   }
+}
+.repository-viewer-subbar {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  padding: 12px 24px;
+}
+.edge-chat-loading {
+  padding: 32px 24px;
+  display: grid;
+  gap: 12px;
 }

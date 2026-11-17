@@ -1,11 +1,21 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { StatusBadge } from "@aisdkpro/ui";
+import { SkeletonBlock, StatusBadge } from "@aisdkpro/ui";
 import LLMChat from "./llm";
-import KeylessChat from "./KeylessChat";
 import SiteHeader from "./SiteHeader";
+
+const KeylessChat = dynamic(() => import("./KeylessChat"), {
+  ssr: false,
+  loading: () => (
+    <div className="edge-chat-empty edge-chat-loading" role="status">
+      <SkeletonBlock height={28} width="240px" />
+      <SkeletonBlock height={84} />
+    </div>
+  ),
+});
 import {
   getBrowserSessionSnapshot,
   getServerBrowserSessionSnapshot,
