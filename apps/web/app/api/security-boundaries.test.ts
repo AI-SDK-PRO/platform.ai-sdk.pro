@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getAuth: vi.fn(),
   getSession: vi.fn(),
+  readFirebaseSession: vi.fn(),
+  firebaseSessionUser: vi.fn(),
+  sessionCookie: vi.fn(),
+  completeGitHubConnection: vi.fn(),
   requireSessionUser: vi.fn(),
   getGitHubAccessToken: vi.fn(),
   listOwnedRepositories: vi.fn(),
@@ -49,6 +53,16 @@ vi.mock("ai", () => ({
 }));
 vi.mock("better-auth/next-js", () => ({
   toNextJsHandler: mocks.toNextJsHandler,
+}));
+vi.mock("@/lib/firebase-session", () => ({
+  readFirebaseSession: mocks.readFirebaseSession,
+  firebaseSessionUser: mocks.firebaseSessionUser,
+  sessionCookie: mocks.sessionCookie,
+  clearSessionCookie: vi.fn(() => "cleared=1; Max-Age=0"),
+  FIREBASE_SESSION_COOKIE: "__Host-aisdk-session",
+}));
+vi.mock("@/lib/github-connection", () => ({
+  completeGitHubConnection: mocks.completeGitHubConnection,
 }));
 
 import { PlatformAuthenticationError, resetPlatformRateLimitsForTests } from "@/lib/platform-policy";
@@ -114,6 +128,14 @@ beforeEach(() => {
     POST: mocks.authHandlerPost,
   });
   mocks.getSession.mockResolvedValue(Response.json(null));
+  mocks.readFirebaseSession.mockResolvedValue(null);
+  mocks.firebaseSessionUser.mockResolvedValue(null);
+  mocks.sessionCookie.mockResolvedValue(
+    "__Host-aisdk-session=synthetic; Path=/; HttpOnly; Secure; SameSite=Lax"
+  );
+  mocks.completeGitHubConnection.mockResolvedValue(
+    new Response("synthetic-github-callback", { status: 200 })
+  );
   mocks.requireSessionUser.mockResolvedValue(userB);
   mocks.getGitHubAccessToken.mockResolvedValue("synthetic-github-token");
   mocks.listOwnedRepositories.mockResolvedValue([]);
@@ -196,8 +218,8 @@ describe("chat route security boundary", () => {
   });
 });
 
-describe("Better Auth route allowlist boundary", () => {
-  it("returns not found for unapproved endpoints before initializing Better Auth", async () => {
+describe("Firebase auth route allowlist boundary", () => {
+  it("returns gone for legacy Better Auth endpoints", async () => {
     const response = await postAuthEndpoint(
       new Request("https://ai-sdk.pro/api/auth/get-access-token", {
         method: "POST",
@@ -206,26 +228,24 @@ describe("Better Auth route allowlist boundary", () => {
       authContext("get-access-token")
     );
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(410);
     expect(mocks.getAuth).not.toHaveBeenCalled();
     expect(mocks.authHandlerPost).not.toHaveBeenCalled();
   });
 
-  it("dispatches the approved GitHub callback method", async () => {
-    const response = await postAuthEndpoint(
-      new Request("https://ai-sdk.pro/api/auth/callback/github", {
-        method: "POST",
-        body: "synthetic callback",
-      }),
+  it("dispatches GitHub OAuth completion on callback/github GET", async () => {
+    const { GET: getAuthEndpoint } = await import("./auth/[...all]/route");
+    const response = await getAuthEndpoint(
+      new Request("https://ai-sdk.pro/api/auth/callback/github?code=synthetic"),
       authContext("callback", "github")
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.toNextJsHandler).toHaveBeenCalledTimes(1);
-    expect(mocks.authHandlerPost).toHaveBeenCalledTimes(1);
+    expect(mocks.completeGitHubConnection).toHaveBeenCalledTimes(1);
+    expect(mocks.authHandlerPost).not.toHaveBeenCalled();
   });
 
-  it("rejects an attacker-controlled sign-in callback URL", async () => {
+  it("rejects legacy social sign-in with gone status", async () => {
     const response = await postAuthEndpoint(
       requestWithJson("https://ai-sdk.pro/api/auth/sign-in/social", {
         provider: "github",
@@ -234,7 +254,7 @@ describe("Better Auth route allowlist boundary", () => {
       authContext("sign-in", "social")
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(410);
     expect(mocks.authHandlerPost).not.toHaveBeenCalled();
   });
 });
@@ -345,29 +365,21 @@ describe("browser session renewal boundary", () => {
   });
 
   it("renews only through the trusted route and returns a sanitized no-store session envelope", async () => {
-    const upstreamHeaders = new Headers();
-    upstreamHeaders.append(
-      "Set-Cookie",
-      "session=synthetic-session; Path=/; HttpOnly; Secure; SameSite=None"
-    );
-    mocks.getSession.mockResolvedValue(
-      Response.json(
-        {
-          user: {
-            id: userB.id,
-            name: userB.name,
-            email: userB.email,
-            image: null,
-            internalFlag: "private",
-          },
-          session: {
-            token: "synthetic-bearer-token",
-            expiresAt: "2026-11-10T15:00:00.000Z",
-          },
-        },
-        { headers: upstreamHeaders }
-      )
-    );
+    const expiresEpoch = Math.floor(Date.now() / 1000) + 10800;
+    mocks.readFirebaseSession.mockResolvedValue({
+      sub: userB.id,
+      firebaseUid: "firebase-uid-b",
+      email: userB.email,
+      emailVerified: true,
+      exp: expiresEpoch,
+    });
+    mocks.firebaseSessionUser.mockResolvedValue({
+      id: userB.id,
+      name: userB.name,
+      email: userB.email,
+      image: null,
+      emailVerified: true,
+    });
     const request = new Request("https://ai-sdk.pro/api/platform/session", {
       method: "POST",
       headers: { Origin: "https://ai-sdk.pro" },
@@ -380,21 +392,16 @@ describe("browser session renewal boundary", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(response.headers.getSetCookie()).toHaveLength(1);
-    expect(mocks.getSession).toHaveBeenCalledWith({
-      headers: request.headers,
-      query: { disableRefresh: false },
-      asResponse: true,
+    expect(mocks.sessionCookie).toHaveBeenCalledTimes(1);
+    expect(body.user).toEqual({
+      id: userB.id,
+      name: userB.name,
+      email: userB.email,
+      image: null,
+      emailVerified: true,
     });
-    expect(body).toEqual({
-      user: {
-        id: userB.id,
-        name: userB.name,
-        email: userB.email,
-        image: null,
-      },
-      expiresAt: "2026-11-10T15:00:00.000Z",
-    });
+    expect(typeof body.expiresAt).toBe("string");
+    expect(new Date(String(body.expiresAt)).getTime()).toBeGreaterThan(Date.now());
     expect(JSON.stringify(body)).not.toContain("synthetic-bearer-token");
-    expect(JSON.stringify(body)).not.toContain("internalFlag");
   });
 });
