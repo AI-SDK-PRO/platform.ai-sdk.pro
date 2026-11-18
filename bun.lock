@@ -64,6 +64,7 @@
         "fumadocs-core": "16.18.4",
         "fumadocs-ui": "16.18.4",
         "geist": "1.4.2",
+        "jose": "^6.2.17",
         "lucide-react": "^0.453.0",
         "next": "16.4.6",
         "react": "19.2.1",
@@ -80,6 +81,16 @@
         "postcss": "^8.4.47",
         "tailwindcss": "^4.1.14",
         "tsx": "^4.20.0",
+      },
+    },
+    "packages/create-webapp": {
+      "name": "create-webapp",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/node": "^22.0.0",
+        "tsup": "^8.5.0",
+        "typescript": "5.9.3",
+        "vitest": "^2.1.9",
       },
     },
     "packages/sdk": {
@@ -127,6 +138,7 @@
     },
   },
   "packages": {
+    "create-webapp": ["create-webapp@workspace:packages/create-webapp"],
     "@ai-sdk/anthropic": ["@ai-sdk/anthropic@3.0.142", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.66" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-EJeOzLcsE6dZ5ilJ6TSXkj7/XJ+o/6197XAlUSMrxcbVYYi4BMJRSkzx5Ah+UYt/aUSN5fGMelEbUlH/edkBxg=="],
 
     "@ai-sdk/gateway": ["@ai-sdk/gateway@3.0.232", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.65", "@vercel/oidc": "3.2.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-WsFQx7phsTe77jeRginAYAlRdy5CNkOSlhNgpOfr31zia5T103mSpeo2QR42uB1S+e9zClrcGaPigxR5a009gA=="],
