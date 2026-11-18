@@ -1,4 +1,6 @@
-# ai-sdk.pro
+# ai-sdk.pro (monorepo รวม platform + web)
+
+รีโป canonical: **`z-ey3eiei/platform.ai-sdk.pro`** — รวมซอร์สจาก `ai-sdk-pro` และชั้นแพลตฟอร์ม (Firebase workspace, deploy, `create-webapp` CLI) ใน monorepo เดียว คำสั่งติดตั้งบน VPS: **[SETUP-VPS.md](SETUP-VPS.md)**
 
 แพลตฟอร์มอิสระสำหรับสร้าง AI agents และเรียกใช้งานผ่าน AI SDK 6 UI Message Stream โดยตั้งใจให้ self-host บน VPS ของผู้ดูแลเอง ไม่ผูกกับ Vercel แชท public ใช้ BYOK: ผู้ใช้เลือกบริการ AI และกรอก API key ของตัวเอง คีย์ของเจ้าของเว็บไม่ถูกส่งให้ผู้ใช้
 

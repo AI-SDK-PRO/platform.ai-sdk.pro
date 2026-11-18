@@ -1,5 +1,6 @@
 import { starterTemplates } from "@/lib/starter-catalog";
 import { SITE_ORIGIN } from "@/lib/seo-metadata";
+import { SITE_INFO } from "@/lib/site-info";
 
 export const dynamic = "force-static";
 
@@ -8,8 +9,8 @@ export function GET() {
   return Response.json(
     {
       registry: "aisdkpro",
-      cliPackage: "create-webapp",
-      command: "npx create-webapp@latest aisdkpro",
+      cliPackage: SITE_INFO.cliPackageName,
+      command: SITE_INFO.cliScaffoldCommand,
       origin,
       templates: starterTemplates.map(template => ({
         slug: template.slug,
@@ -21,7 +22,7 @@ export function GET() {
         features: template.features,
         requirements: template.requirements,
         setup: template.setup,
-        cliCommand: `npx create-webapp@latest aisdkpro --template ${template.slug}`,
+        cliCommand: SITE_INFO.cliTemplateCommand(template.slug),
         downloadUrl: `${origin}${template.downloadUrl}`,
         fileCount: template.fileCount,
         bytes: template.bytes,

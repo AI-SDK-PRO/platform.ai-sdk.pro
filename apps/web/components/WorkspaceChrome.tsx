@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
-  ArrowUpRight, ChevronRight, Database, KeyRound, Library,
+  ArrowUpRight, BookUser, ChevronRight, Database, KeyRound, Library,
   HardDrive, LoaderCircle, LogOut, Rocket, ShieldCheck, UserRound,
 } from "lucide-react";
 import SiteHeader from "./SiteHeader";
@@ -25,6 +25,7 @@ function initials(user: PlatformSession["user"]): string {
 }
 
 function sectionLabel(pathname: string): string {
+  if (pathname.startsWith("/workspace/about")) return "เกี่ยวกับฉัน";
   if (pathname.startsWith("/workspace/account")) return "Account & GitHub";
   if (pathname.startsWith("/workspace/storage")) return "Storage";
   if (pathname.startsWith("/workspace/deploy")) return "Deployments";
@@ -67,6 +68,10 @@ export default function WorkspaceChrome({
               <HardDrive size={16} />
               <span>Storage</span>
             </Link>
+            <Link href="/workspace/about" className={pathname.startsWith("/workspace/about") ? "workspace-nav-item active" : "workspace-nav-item"}>
+              <BookUser size={16} />
+              <span>เกี่ยวกับฉัน</span>
+            </Link>
             <Link href="/workspace/account" className={pathname.startsWith("/workspace/account") ? "workspace-nav-item active" : "workspace-nav-item"}>
               <UserRound size={16} />
               <span>Account &amp; GitHub</span>
@@ -84,7 +89,8 @@ export default function WorkspaceChrome({
           <div className="workspace-sidebar-note">
             <ShieldCheck size={15} />
             <p>
-              Import a repository snapshot to inspect its files. Registered projects can be deployed from the workspace.
+              แพลตฟอร์มเดียวที่ <strong>platform.ai-sdk.pro</strong> — import snapshot,
+              จัดการ deploy และโปรไฟล์ส่วนตัวในบัญชีเดียวกัน
             </p>
           </div>
           <div className="workspace-sidebar-footer">

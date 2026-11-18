@@ -32,6 +32,9 @@ describe("Firebase blueprint and security rules synchronization", () => {
     expect(blueprint.entities.UserAccount.properties.displayName.maxLength).toBe(
       FIREBASE_LIMITS.displayNameMaxLength
     );
+    expect(blueprint.entities.UserAccount.properties.aboutMe.maxLength).toBe(
+      FIREBASE_LIMITS.aboutMeMaxLength
+    );
     expect(blueprint.entities.UserAccount.properties.email.maxLength).toBe(
       FIREBASE_LIMITS.emailMaxLength
     );
@@ -58,10 +61,12 @@ describe("Firebase blueprint and security rules synchronization", () => {
     const account = buildAccountPayload({
       uid: "user_123",
       displayName: "A".repeat(200),
+      aboutMe: "B".repeat(600),
       email: "user@example.com",
       updatedAt: stubTimestamp,
     });
     expect(account.displayName.length).toBe(FIREBASE_LIMITS.displayNameMaxLength);
+    expect(account.aboutMe?.length).toBe(FIREBASE_LIMITS.aboutMeMaxLength);
 
     const preset = buildPresetPayload({
       id: "preset_1",

@@ -96,6 +96,7 @@ export const FIREBASE_LIMITS = {
   idPattern: /^[a-zA-Z0-9_-]{1,128}$/,
   idMaxLength: 128,
   displayNameMaxLength: 120,
+  aboutMeMaxLength: 500,
   emailMaxLength: 254,
   presetTitleMaxLength: 80,
   presetPromptMaxLength: 2000,
@@ -109,6 +110,7 @@ export type FirebaseProviderPreference = (typeof FIREBASE_LIMITS.providers)[numb
 export interface UserAccountDoc {
   uid: string;
   displayName: string;
+  aboutMe?: string;
   email: string;
   updatedAt: FieldValue;
 }
@@ -143,6 +145,7 @@ function assertValidId(value: string, label: string): string {
 export function buildAccountPayload(input: {
   uid: string;
   displayName?: string | null;
+  aboutMe?: string | null;
   email: string;
   updatedAt: FieldValue;
 }): UserAccountDoc {
@@ -152,9 +155,13 @@ export function buildAccountPayload(input: {
   const displayName = (input.displayName ?? "")
     .trim()
     .slice(0, FIREBASE_LIMITS.displayNameMaxLength);
+  const aboutMe = (input.aboutMe ?? "")
+    .trim()
+    .slice(0, FIREBASE_LIMITS.aboutMeMaxLength);
   return {
     uid,
     displayName,
+    ...(aboutMe ? { aboutMe } : {}),
     email,
     updatedAt: input.updatedAt,
   };

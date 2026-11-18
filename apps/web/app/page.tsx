@@ -28,6 +28,7 @@ import {
   HOME_PAGE_TITLE,
   SITE_DESCRIPTION,
 } from "../lib/seo-metadata";
+import { SITE_INFO } from "../lib/site-info";
 
 export const metadata: Metadata = {
   ...createSeoMetadata({
@@ -91,10 +92,10 @@ const features = [
 ];
 const steps = [
   {
-    title: "Start the workspace",
-    text: "Use Node.js 22 and pnpm 10.18.0. Install the workspace dependencies and open the development server.",
+    title: "Scaffold a starter",
+    text: `ใช้ Node.js 22+ และ CLI ${SITE_INFO.cliPackageName} (เผยแพร่จาก monorepo นี้) เพื่อสร้างโปรเจกต์ในเครื่องก่อน deploy`,
     filename: "terminal",
-    code: "pnpm install\npnpm dev",
+    code: `${SITE_INFO.cliScaffoldCommand} --template docs-assistant\nnpm install\nnpm run dev`,
   },
   {
     title: "Configure your agent",
@@ -117,30 +118,28 @@ export default function Home() {
         <section className="center-hero">
           <div className="hero-grid" aria-hidden="true" />
           <div className="reference-container hero-inner">
-            <Link href="/docs/defining-agents" className="intro-pill">
-              <i aria-hidden="true" /> AI agents · Your infrastructure
+            <Link href="/workspace" className="intro-pill">
+              <i aria-hidden="true" /> Platform workspace · Self-hosted
             </Link>
             <h1>
               Ideas, meet <span>Intelligence.</span>
             </h1>
             <p>
-              ai-sdk.pro gives your ideas the whole stack — tool-enabled agents,
-              real-time streaming, and your own infrastructure — so the moment
-              of inspiration becomes something useful.
+              ai-sdk.pro เป็นแพลตฟอร์มหน้าร้านและเครื่องมือจริง — agent,
+              streaming chat, starter CLI และ workspace บน{" "}
+              <strong>platform.ai-sdk.pro</strong> — ที่คุณโฮสต์บน VPS ของตัวเอง
             </p>
             <div className="hero-install">
-              <InstallCommand command="pnpm --filter @aisdkpro/web dev" />
+              <InstallCommand command={SITE_INFO.cliScaffoldCommand} />
             </div>
             <div className="hero-terminal">
               <CodeBlock
-                filename="~/ai-sdk.pro"
+                filename="terminal"
                 language="bash"
-                code={
-                  "$ pnpm agent:smoke\n✓ Tool executed          getCurrentTime\n✓ Agent loop             20-step limit"
-                }
+                code={`$ ${SITE_INFO.cliScaffoldCommand} --template streaming-chat\n✓ Starter scaffolded\n$ cd streaming-chat && npm install && npm run dev`}
               />
               <span className="terminal-example-label">
-                Example output · run in your workspace
+                หลังคุณ publish แพ็กเก็จ npm <code>{SITE_INFO.cliPackageName}</code> แล้ว
               </span>
             </div>
           </div>
