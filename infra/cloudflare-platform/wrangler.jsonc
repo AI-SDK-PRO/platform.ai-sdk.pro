@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "aisdkpro-platform-api-staging",
+  "name": "platform-ai-sdk-pro",
   "main": "src/api.js",
   "compatibility_date": "2026-11-16",
   "compatibility_flags": ["nodejs_compat"],
