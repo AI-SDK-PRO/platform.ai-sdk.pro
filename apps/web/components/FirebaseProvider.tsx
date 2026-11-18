@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -20,10 +21,10 @@ import {
   buildAccountPayload,
   db,
   googleProvider,
-  handleFirestoreError,
-  OperationType,
   testConnection,
 } from "../lib/firebase";
+import { syncFirebaseSession, clearFirebaseSession } from "../lib/firebase-session-client";
+import { refreshBrowserSession } from "../lib/browser-session";
 import FirebaseErrorBoundary from "./FirebaseErrorBoundary";
 
 export interface FirebaseContextValue {
@@ -51,6 +52,8 @@ export function useFirebase() {
 }
 
 export default function FirebaseProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const needsSession = pathname.startsWith("/workspace") || pathname === "/deploy";
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [connected, setConnected] = useState<boolean | null>(null);
@@ -60,9 +63,18 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
   useEffect(() => {
     void testConnection().then(setConnected);
 
-    const unsubscribe = onAuthStateChanged(auth, nextUser => {
-      setUser(nextUser);
-      setAuthReady(true);
+    const unsubscribe = onAuthStateChanged(auth, async nextUser => {
+      setAuthReady(false);
+      setAuthError("");
+      try {
+        if (nextUser?.emailVerified) await syncFirebaseSession(nextUser);
+        else await clearFirebaseSession();
+        await refreshBrowserSession({ reason: "login-check" });
+        setUser(nextUser);
+      } catch {
+        setUser(nextUser);
+        setAuthError("เชื่อมบัญชีกับ Workspace ไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง");
+      } finally { setAuthReady(true); }
 
       if (nextUser?.email && nextUser.emailVerified) {
         const accountPath = `users/${nextUser.uid}/private/account`;
@@ -75,7 +87,7 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
         void setDoc(doc(db, "users", nextUser.uid, "private", "account"), payload, {
           merge: true,
         }).catch(error => {
-          handleFirestoreError(error, OperationType.WRITE, accountPath);
+          setConnected(false);
         });
       }
     });
@@ -87,7 +99,9 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
     setBusy(true);
     setAuthError("");
     try {
-      await signInWithPopup(auth, googleProvider);
+      const credential = await signInWithPopup(auth, googleProvider);
+      await syncFirebaseSession(credential.user);
+      await refreshBrowserSession({ reason: "login-check" });
     } catch (error) {
       setAuthError(
         error instanceof Error ? error.message : "Google Sign-In failed."
@@ -101,7 +115,9 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
     setBusy(true);
     setAuthError("");
     try {
+      await clearFirebaseSession();
       await signOut(auth);
+      await refreshBrowserSession({ reason: "login-check" });
     } catch (error) {
       setAuthError(
         error instanceof Error ? error.message : "Firebase sign-out failed."
@@ -123,7 +139,9 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
         signOutFirebase,
       }}
     >
-      <FirebaseErrorBoundary>{children}</FirebaseErrorBoundary>
+      <FirebaseErrorBoundary>{needsSession && !authReady
+        ? <main className="auth-page"><p role="status">กำลังเชื่อมบัญชี Workspace…</p></main>
+        : children}</FirebaseErrorBoundary>
     </FirebaseContext.Provider>
   );
 }

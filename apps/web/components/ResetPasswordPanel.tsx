@@ -16,7 +16,7 @@ export default function ResetPasswordPanel() {
   const [done, setDone] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const incoming = params.get("token") || "";
+    const incoming = params.get("oobCode") || params.get("token") || "";
     setInvalid(params.has("error") || incoming.length < 8);
     setToken(incoming);
     // Clear the single-use token from browser history and referrers.

@@ -149,10 +149,7 @@ export default function EmailAuthPanel({
           การสมัครด้วยอีเมลกำลังเตรียมการส่งข้อความยืนยัน และจะเปิดเมื่อเซิร์ฟเวอร์ตั้งค่าระบบอีเมลแล้ว
         </p>
       )}
-      <p className="native-auth-help">
-        มีบัญชีเดิมจาก GitHub อยู่แล้ว? ให้ใช้ปุ่ม GitHub เดิมก่อน แล้วเปิดใช้รหัสผ่านที่
-        {" "}<Link href="/workspace/account">Account Settings</Link> เพื่อใช้ User ID เดียวกัน
-      </p>
+
     </div>
   );
 }

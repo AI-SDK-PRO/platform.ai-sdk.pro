@@ -16,8 +16,9 @@ export async function GET(request: Request) {
     const linked = await db.select({ providerId: account.providerId })
       .from(account).where(eq(account.userId, user.id));
     return Response.json({
-      github: linked.some(row => row.providerId === "github"),
-      password: linked.some(row => row.providerId === "credential"),
+      github: linked.some(row => row.providerId === "github-firebase"),
+      password: false,
+      authProvider: "firebase",
       emailVerified: user.emailVerified === true,
       email: user.email,
     }, { headers: noStoreHeaders() });

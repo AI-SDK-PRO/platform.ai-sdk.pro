@@ -1,42 +1,14 @@
-import { getAuth } from "@/lib/auth";
-import {
-  getPlatformConfig,
-  isTrustedMutationOrigin,
-  jsonError,
-  noStoreHeaders,
-  safePlatformError,
-} from "@/lib/platform-policy";
-import type { PlatformSession } from "@/lib/platform-types";
-import { sanitizedSessionResponse } from "@/lib/session-response";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-async function sessionResponse(
-  request: Request,
-  renew: boolean
-): Promise<Response> {
-  if (renew && !isTrustedMutationOrigin(request)) {
-    return jsonError("Origin is not allowed.", 403);
-  }
-  if (!getPlatformConfig().configured) {
-    return Response.json(
-      { user: null, expiresAt: null } satisfies PlatformSession,
-      { headers: noStoreHeaders() }
-    );
-  }
-  try {
-    const response = await getAuth().api.getSession({
-      headers: request.headers,
-      query: { disableRefresh: !renew },
-      asResponse: true,
-    });
-    return await sanitizedSessionResponse(response);
-  } catch (error) {
-    const safe = safePlatformError(error);
-    return jsonError(safe.message, safe.status);
-  }
+import { readFirebaseSession, firebaseSessionUser, sessionCookie } from '@/lib/firebase-session';
+import { isTrustedMutationOrigin, jsonError, noStoreHeaders } from '@/lib/platform-policy';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+async function respond(request: Request, renew: boolean) {
+  if (renew && !isTrustedMutationOrigin(request)) return jsonError('Origin is not allowed.', 403);
+  const claims = await readFirebaseSession(request);
+  const user = await firebaseSessionUser(request);
+  const headers = noStoreHeaders();
+  if (renew && claims) headers.append('Set-Cookie', await sessionCookie(claims));
+  return Response.json({ user, expiresAt: claims ? new Date((renew ? Date.now() / 1000 + 10800 : Number(claims.exp)) * 1000).toISOString() : null }, { headers });
 }
-
-export const GET = (request: Request) => sessionResponse(request, false);
-export const POST = (request: Request) => sessionResponse(request, true);
+export const GET = (request: Request) => respond(request, false);
+export const POST = (request: Request) => respond(request, true);

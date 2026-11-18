@@ -1,4 +1,6 @@
 import "server-only";
+import { firebaseSessionUser } from "./firebase-session";
+import { readConnectedGitHubToken } from "./github-connection";
 
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
@@ -142,11 +144,7 @@ export function resetAuthForTests(): void {
 }
 
 export async function getSessionUser(request: Request) {
-  const result = await getAuth().api.getSession({
-    headers: request.headers,
-    query: { disableRefresh: true },
-  });
-  return result?.user ?? null;
+  return firebaseSessionUser(request);
 }
 
 export async function requireSessionUser(request: Request) {
@@ -159,23 +157,9 @@ export async function getGitHubAccessToken(
   request: Request,
   userId: string
 ): Promise<string> {
-  const database = getPlatformDb();
-  if (!database) throw new Error("Platform database is unavailable.");
-  const rows = await database
-    .select({ id: account.id })
-    .from(account)
-    .where(and(eq(account.userId, userId), eq(account.providerId, "github")))
-    .limit(1);
-  const githubAccount = rows[0];
-  if (!githubAccount)
-    throw new GitHubConnectionRequiredError();
-  const result = await getAuth().api.getAccessToken({
-    headers: request.headers,
-    body: { accountId: githubAccount.id },
-  });
-  if (!result?.accessToken)
-    throw new GitHubConnectionRequiredError();
-  return result.accessToken;
+  const token = await readConnectedGitHubToken(userId);
+  if (!token) throw new GitHubConnectionRequiredError();
+  return token;
 }
 
 export function publicUser(user: {
