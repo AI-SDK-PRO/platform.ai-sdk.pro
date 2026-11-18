@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { ButtonLink, CodeBlock } from "@aisdkpro/ui";
 import type { StarterTemplate } from "@/lib/starter-catalog";
+import { SITE_INFO } from "@/lib/site-info";
 import { formatArchiveSize } from "./template-utils";
 
 export default function StarterDetail({
@@ -138,7 +139,7 @@ export default function StarterDetail({
               </p>
               <div className="starter-code-wrap">
                 <CodeBlock
-                  code={`npx create-webapp@latest aisdkpro --template ${template.slug}\n\n# หรือดาวน์โหลด archive แล้วรันในเครื่อง:\n${template.setup}`}
+                  code={`${SITE_INFO.cliTemplateCommand(template.slug)}\n\n# หรือดาวน์โหลด archive แล้วรันในเครื่อง:\n${template.setup}`}
                   filename="terminal"
                   language="bash"
                 />

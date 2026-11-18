@@ -4,6 +4,7 @@ import { Search, SlidersHorizontal, Terminal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { InstallCommand } from "@aisdkpro/ui";
 import type { StarterCategory, StarterTemplate } from "@/lib/starter-catalog";
+import { SITE_INFO } from "@/lib/site-info";
 import StarterCard from "./StarterCard";
 
 type Filter = "All" | StarterCategory;
@@ -83,7 +84,7 @@ export default function TemplatesCatalog({
               รันคำสั่งเดียวเพื่อเลือกทั้ง 3 starters ของ ai-sdk.pro พร้อมไฟล์ `.env.example` ที่ปลอดภัย
             </p>
           </div>
-          <InstallCommand command="npx create-webapp@latest aisdkpro" />
+          <InstallCommand command={SITE_INFO.cliScaffoldCommand} />
         </div>
 
         <div className="starter-catalog-toolbar">
