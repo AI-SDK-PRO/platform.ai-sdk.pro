@@ -9,6 +9,7 @@ on:
       - feat/platform-native-account-registration-20261117
       - feat/flags-sdk-vercel-blob-20261117
       - feat/free-three-project-public-deploy-20261117
+      - fix/github-actions-bun-ci-20261118
 
   pull_request:
     branches:
@@ -28,24 +29,26 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.18.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
       - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
       - name: TypeScript strict checks
-        run: pnpm typecheck
+        run: bun run typecheck
       - name: Vitest regressions and security boundaries
-        run: pnpm test
+        run: bun run test
       - name: Install isolated Cloudflare platform test dependencies
         run: npm install --prefix infra/cloudflare-platform --no-package-lock --ignore-scripts --no-audit --no-fund
       - name: Cloudflare platform Node test suite
-        run: pnpm -C infra/cloudflare-platform test
+        run: npm --prefix infra/cloudflare-platform test
       - name: Monorepo build
-        run: pnpm build
+        run: bun run build
+      - name: Install isolated Agent Worker dry-run dependencies
+        run: npm install --prefix apps/agent-worker --no-package-lock --ignore-scripts --no-audit --no-fund
       - name: Cloudflare Keyless Worker dry-run bundle (no deployment)
-        run: pnpm -C apps/agent-worker exec wrangler deploy --dry-run --config wrangler.jsonc --outdir /tmp/aisdkpro-agent-preview
+        working-directory: apps/agent-worker
+        run: npx wrangler deploy --dry-run --config wrangler.jsonc --outdir /tmp/aisdkpro-agent-preview
