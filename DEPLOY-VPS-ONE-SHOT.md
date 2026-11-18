@@ -21,6 +21,45 @@
 
 คัดลอกแม่แบบ: `.env.example`
 
+## แรมเต็ม / VPS 4 GiB (สำคัญ)
+
+`docker build` + `npm run build` ภายใน Dockerfile กิน RAM สูงมาก — บน Droplet 4 GiB มัก **OOM** หรือ swap เต็ม
+
+**อย่า** รัน `npm ci` / `npm run build` บน VPS ถ้าไม่จำเป็น (ใช้ migrate แยกหรือรันจากเครื่องอื่น)
+
+ทางที่เบากว่า — **ดึง image จาก GHCR** แทน build บนเครื่อง:
+
+```bash
+# ครั้งแรก: login GHCR (PAT ต้องมี read:packages)
+echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
+
+cd /opt/ai-sdk-pro/current
+git pull origin main
+BUILD_MODE=pull ./scripts/vps-update-release.sh
+```
+
+สคริปต์โหมด `auto` จะเลือก `pull` เองถ้า `MemAvailable` ต่ำกว่า ~2.2 GiB
+
+ถ้าจำเป็นต้อง build บน VPS — เพิ่ม swap ชั่วคราวแล้วค่อย build:
+
+```bash
+free -h
+sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+docker system prune -f
+BUILD_MODE=build ./scripts/vps-update-release.sh
+```
+
+ถ้าแรมเต็มระหว่าง deploy อยู่:
+
+```bash
+docker ps -a
+docker system df
+sudo swapon --show
+# หยุด build ค้าง: docker ps | awk '/build/ {print $1}' | xargs -r docker stop
+```
+
+---
+
 ## คำสั่งเดียวจบ (แนะนำ)
 
 ```bash

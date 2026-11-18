@@ -61,7 +61,7 @@ case "$mode" in
   build)
     log "Building image $APP_IMAGE (needs ~3–6 GiB peak RAM — add swap if OOM)"
     cd "$CURRENT"
-  38:    DOCKER_BUILDKIT=1 docker build -f Dockerfile -t "$APP_IMAGE" .
+    DOCKER_BUILDKIT=1 docker build -f Dockerfile -t "$APP_IMAGE" .
     ;;
   pull)
     export APP_IMAGE="${GHCR_IMAGE}:${GHCR_TAG}"
