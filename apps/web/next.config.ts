@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 import path from 'node:path';
 const config: NextConfig = {
+  distDir: process.env.NEXT_DEV_DIST_DIR || '.next',
   output: 'standalone',
   outputFileTracingRoot: path.join(process.cwd(), '../..'),
   transpilePackages: ['@aisdkpro/ui', '@aisdkpro/client'],

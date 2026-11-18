@@ -64,7 +64,6 @@
         "fumadocs-core": "16.18.4",
         "fumadocs-ui": "16.18.4",
         "geist": "1.4.2",
-        "jose": "^6.2.17",
         "lucide-react": "^0.453.0",
         "next": "16.4.6",
         "react": "19.2.1",
@@ -81,19 +80,6 @@
         "postcss": "^8.4.47",
         "tailwindcss": "^4.1.14",
         "tsx": "^4.20.0",
-      },
-    },
-    "packages/create-webapp": {
-      "name": "create-webapp",
-      "version": "0.1.0",
-      "bin": {
-        "create-webapp": "dist/cli.js",
-      },
-      "devDependencies": {
-        "@types/node": "^22.0.0",
-        "tsup": "^8.5.0",
-        "typescript": "5.9.3",
-        "vitest": "^2.1.9",
       },
     },
     "packages/sdk": {
@@ -1106,8 +1092,6 @@
     "core-js-pure": ["core-js-pure@3.51.0", "", { "hasInstallScript": true }, "sha512-NE4SFDJ+qzQeqHG2vVSNwopzS6zZNPYJ5kinIqs+OofTqGzOmICgT89E/yvS9XY7rwb3eU1utWXTJ9nVFqv74A=="],
 
     "cose-base": ["cose-base@1.0.3", "", { "dependencies": { "layout-base": "^1.0.0" } }, "sha512-s9whTXInMSgAp/NVXVNuVxVKzGH2qck3aQlVHxDCdAEPgtMKwc4Wq6/QKhgdEdgbLSi9rBTAcPoRa6JpiG4ksg=="],
-
-    "create-webapp": ["create-webapp@workspace:packages/create-webapp"],
 
     "cron-schedule": ["cron-schedule@6.0.0", "", {}, "sha512-BoZaseYGXOo5j5HUwTaegIog3JJbuH4BbrY9A1ArLjXpy+RWb3mV28F/9Gv1dDA7E2L8kngWva4NWisnLTyfgQ=="],
 
