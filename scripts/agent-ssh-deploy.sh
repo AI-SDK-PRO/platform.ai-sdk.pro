@@ -4,7 +4,7 @@
 set -euo pipefail
 
 HOST="${VPS_SSH_HOST:-${SSH_HOST:-}}"
-USER="${VPS_SSH_USER:-${SSH_USER:-}}"
+USER="${VPS_SSH_USER:-${SSH_USER:-deploy}}"
 KEY="${VPS_SSH_PRIVATE_KEY:-${SSH_KEY:-}}"
 PORT="${VPS_SSH_PORT:-22}"
 
@@ -21,6 +21,7 @@ printf '%s\n' "$KEY" >"$KEY_FILE"
 SSH_OPTS=(
   -i "$KEY_FILE"
   -p "$PORT"
+  -o IdentitiesOnly=yes
   -o BatchMode=yes
   -o StrictHostKeyChecking=accept-new
   -o ConnectTimeout=25
