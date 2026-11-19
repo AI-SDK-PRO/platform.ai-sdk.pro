@@ -1,0 +1,6 @@
+packages:
+  - "apps/web"
+  - "apps/docs"
+  - "packages/ui"
+  - "packages/sdk"
+  - "packages/create-webapp"
