@@ -14,11 +14,5 @@
   },
   "observability": {
     "enabled": true
-  },
-  "vars": {
-    "BETTER_AUTH_URL": "https://aisdkpro-web-cloudflare.examplessdk.workers.dev",
-    "APP_ORIGINS": "https://aisdkpro-web-cloudflare.examplessdk.workers.dev",
-    "BYOK_ONLY": "true",
-    "PLATFORM_DEPLOY_ORIGIN": "https://deploy-staging.ai-sdk.pro"
   }
 }

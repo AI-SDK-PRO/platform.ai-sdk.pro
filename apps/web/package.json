@@ -9,8 +9,10 @@
     "typecheck": "NODE_OPTIONS=--max-old-space-size=1024 tsc --noEmit",
     "agent:smoke": "tsx scripts/agent-smoke.ts",
     "platform:migrate": "tsx scripts/migrate-platform.ts",
-    "cloudflare:bundle": "opennextjs-cloudflare build",
-    "cloudflare:publish": "opennextjs-cloudflare deploy"
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:deploy": "opennextjs-cloudflare deploy",
+    "cf:dry-run": "wrangler deploy --dry-run",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.0",
@@ -40,7 +42,8 @@
     "react-dom": "19.2.1",
     "server-only": "^0.0.1",
     "streamdown": "^1.4.0",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "@opennextjs/cloudflare": "^1.20.17"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
@@ -49,6 +52,7 @@
     "drizzle-kit": "0.31.11",
     "postcss": "^8.4.47",
     "tailwindcss": "^4.1.14",
-    "tsx": "^4.20.0"
+    "tsx": "^4.20.0",
+    "wrangler": "^4.0.0"
   }
 }

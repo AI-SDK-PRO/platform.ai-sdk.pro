@@ -1,0 +1,37 @@
+name: Cloudflare Worker build (no deployment)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/sdk/**"
+      - "packages/ui/**"
+      - "package.json"
+      - "bun.lock"
+      - "package-lock.json"
+      - ".github/workflows/cloudflare-worker-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install workspace dependencies (non-frozen until lockfile is regenerated)
+        run: bun install --no-frozen-lockfile
+      - name: Build Next.js for Cloudflare Workers
+        run: npm run cloudflare:build
+      - name: Validate Cloudflare Worker bundle without deploying
+        working-directory: apps/web
+        run: npx wrangler deploy --dry-run
