@@ -124,3 +124,8 @@ __pycache__/
 # Bundled CLI templates synced on build
 packages/create-webapp/templates/
 
+
+# OpenNext generated Cloudflare Workers build output
+**/.open-next/
+**/.wrangler/
+**/cloudflare-env.d.ts

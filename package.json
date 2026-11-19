@@ -18,7 +18,10 @@
     "check": "npm run typecheck",
     "test": "vitest run",
     "start": "npm run start --workspace=apps/web",
-    "agent:smoke": "npm run agent:smoke --workspace=apps/web"
+    "agent:smoke": "npm run agent:smoke --workspace=apps/web",
+    "cloudflare:build": "npm run build --workspace=packages/sdk && npm run cf:build --workspace=apps/web",
+    "cloudflare:deploy": "npm run cloudflare:build && npm run cf:deploy --workspace=apps/web",
+    "cloudflare:dry-run": "npm run cloudflare:build && npm run cf:dry-run --workspace=apps/web"
   },
   "devDependencies": {
     "turbo": "^2.6.0",
