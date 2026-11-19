@@ -17,6 +17,10 @@ Docker, SSH, Coolify, the VPS, or a running Node.js server.
    - **Build command:** `npm run cloudflare:build`
    - **Deploy command:** `npm run cloudflare:deploy`
    - **Node.js version:** 22
+   - **Build variables:** `SKIP_DEPENDENCY_INSTALL=true` and `NODE_VERSION=22`
+     (Cloudflare auto-detects Bun from `bun.lock`; this project deliberately
+     installs from the synchronized npm workspace lockfile via `npm ci` in
+     `cloudflare:build` instead of running frozen Bun automatically.)
    - **Framework preset:** None / custom
 4. The Worker is named `aisdkpro-web-cloudflare` in
    `apps/web/wrangler.jsonc`. Keep the `*.workers.dev` URL enabled for
@@ -49,7 +53,8 @@ npm run cloudflare:build
 npm run cloudflare:deploy
 ```
 
-`cloudflare:build` installs pinned OpenNext/Wrangler tooling **without
+`cloudflare:build` first runs `npm ci` from the existing `package-lock.json`,
+then installs pinned OpenNext/Wrangler tooling **without
 modifying the existing lockfile or workspace manifests**, builds the internal
 SDK, then compiles the Next.js app with OpenNext. This intentionally isolates
 Cloudflare-specific deployment tooling from the VPS/GitHub validation build.
