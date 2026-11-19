@@ -3,7 +3,10 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, LoaderCircle, ShieldCheck } from "lucide-react";
 import SiteHeader from "./SiteHeader";
-import EmailAuthPanel from "./EmailAuthPanel";
+import dynamic from "next/dynamic";
+
+// Firebase Auth initializes browser-only modules; never evaluate the email UI in SSR.
+const EmailAuthPanel = dynamic(() => import("./EmailAuthPanel"), { ssr: false });
 import { useFirebase } from "./FirebaseProvider";
 import { refreshBrowserSession } from "../lib/browser-session";
 
