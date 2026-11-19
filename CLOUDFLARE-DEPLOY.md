@@ -5,7 +5,7 @@ This repository is an **npm/Bun monorepo**, not a static site. Deploy the `apps/
 ## Important boundaries
 
 - No VPS, Docker, Coolify, SSH, GHCR or Vercel runtime is required for the web app.
-- This setup uses a **separate Worker** named `platform-ai-sdk-pro-web`. Do not overwrite `platform-ai-sdk-pro`, `platform-ai-sdkpro`, the dispatch workers, or the custom-domain routing before a successful smoke test.
+- This setup uses the **already-existing Worker** named `aisdkpro-web-cloudflare`. Do not overwrite `platform-ai-sdk-pro`, `platform-ai-sdkpro`, the dispatch workers, or the custom-domain routing before a successful smoke test.
 - The Cloudflare Worker runs the **main web** at `apps/web`. `apps/docs` is a separate Next.js site and is **not** automatically bundled into this worker. The web app's own `/docs` routes still exist.
 - The existing BYOK mode must not fall back to an owner API key. Set `BLOB_UPLOADS_ENABLED=false` unless/until the private Blob API is migrated from Vercel Blob to R2 and tested.
 - Do not commit credentials or `.env` files.
@@ -24,7 +24,7 @@ npm run cf:dry-run --workspace=apps/web
 
 ## Deploy without VPS
 
-In **Cloudflare > Workers & Pages**, select the account that owns `ai-sdk.pro`. Create/connect Worker `platform-ai-sdk-pro-web` to GitHub `z-ey3eiei/platform.ai-sdk.pro` using Workers Builds. Choose the verified branch (prefer the PR branch while validating):
+In **Cloudflare > Workers & Pages**, select the account that owns `ai-sdk.pro`. Create/connect Worker `aisdkpro-web-cloudflare` to GitHub `z-ey3eiei/platform.ai-sdk.pro` using Workers Builds. Choose the verified branch (prefer the PR branch while validating):
 
 | Setting | Value |
 | --- | --- |
@@ -53,3 +53,7 @@ Verify `/`, `/login`, `/workspace`, `/chat`, `/api/health`, `/api/ready`, `/docs
 OpenNext adapts Next.js to Workers, but packages that rely on local file writes, dynamic child processes, Vercel-specific Blob APIs or platform-specific environment variables need separate review. The existing GitHub Actions workflow has been reporting `startup_failure` before any job started; the independent `Cloudflare Worker build` job is a non-deploying check and may also be blocked by the same GitHub Actions account restriction. No tests or live Worker deploy are claimed unless a successful run is observed.
 
 References: https://developers.cloudflare.com/workers/framework-guides/web-apps/opennext/ and https://opennext.js.org/cloudflare/get-started
+
+## Current DNS (verified 2026-11-19)
+
+`ai-sdk.pro` A record is `199.36.158.100` (Firebase Hosting), **not the former VPS**. Its `www` CNAME points to `ai-sdk.pro`. Keep this mapping until the isolated Workers preview passes authentication, API and page checks. Cloudflare custom-domain attachment is an explicit later cutover action; do not replace DNS using a guessed Worker URL.
