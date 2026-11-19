@@ -14,6 +14,7 @@ const config: NextConfig = {
   },
   webpack: (webpackConfig, { dev }) => {
     if (dev) {
+      webpackConfig.devtool = false;
       webpackConfig.watchOptions = {
         ...webpackConfig.watchOptions,
         ignored: [

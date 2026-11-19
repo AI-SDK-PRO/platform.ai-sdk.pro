@@ -1,0 +1,87 @@
+# Firebase App Hosting configuration for ai-sdk.pro (Next.js App Router)
+# Connect this repository in Firebase Console -> Build -> App Hosting
+# and set Root directory to: apps/web
+
+runConfig:
+  cpu: 1
+  memoryMiB: 1024
+  minInstances: 0
+  maxInstances: 10
+  concurrency: 80
+
+env:
+  - variable: NODE_ENV
+    value: production
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: DOMAIN
+    value: ai-sdk.pro
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: BYOK_ONLY
+    value: "true"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: BETTER_AUTH_URL
+    value: https://platform.ai-sdk.pro
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: PLATFORM_DEPLOY_ORIGIN
+    value: https://platform.ai-sdk.pro
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: APP_ORIGINS
+    value: https://platform.ai-sdk.pro,https://ai-sdk.pro
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: GITHUB_APP_SLUG
+    value: ai-sdk-pro
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: PLATFORM_EMAIL_AUTH_ENABLED
+    value: "true"
+    availability:
+      - RUNTIME
+
+  - variable: RESEND_FROM_EMAIL
+    value: no-reply@mail.ai-sdk.pro
+    availability:
+      - RUNTIME
+
+  # Uncomment and bind these in Cloud Secret Manager (firebase apphosting:secrets:set <NAME>)
+  # when enabling Neon PostgreSQL, GitHub OAuth, Resend email, or Cloudflare Keyless Chat:
+  # - variable: NEON_DATABASE_URL
+  #   secret: NEON_DATABASE_URL
+  #   availability: [RUNTIME]
+  # - variable: BETTER_AUTH_SECRET
+  #   secret: BETTER_AUTH_SECRET
+  #   availability: [RUNTIME]
+  # - variable: GITHUB_CLIENT_ID
+  #   secret: GITHUB_CLIENT_ID
+  #   availability: [RUNTIME]
+  # - variable: GITHUB_CLIENT_SECRET
+  #   secret: GITHUB_CLIENT_SECRET
+  #   availability: [RUNTIME]
+  # - variable: RESEND_API_KEY
+  #   secret: RESEND_API_KEY
+  #   availability: [RUNTIME]
+  # - variable: AGENT_AUTH_SECRET
+  #   secret: AGENT_AUTH_SECRET
+  #   availability: [RUNTIME]
+  # - variable: NEXT_PUBLIC_CF_AGENT_URL
+  #   value: https://your-agent-worker.workers.dev
+  #   availability: [BUILD, RUNTIME]

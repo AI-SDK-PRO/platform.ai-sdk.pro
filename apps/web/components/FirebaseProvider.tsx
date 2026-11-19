@@ -9,20 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-  type User,
-} from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import {
-  auth,
-  buildAccountPayload,
-  db,
-  googleProvider,
-  testConnection,
-} from "../lib/firebase";
+import type { User } from "firebase/auth";
 import { syncFirebaseSession, clearFirebaseSession } from "../lib/firebase-session-client";
 import { refreshBrowserSession } from "../lib/browser-session";
 import FirebaseErrorBoundary from "./FirebaseErrorBoundary";
@@ -61,45 +48,79 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
   const [authError, setAuthError] = useState("");
 
   useEffect(() => {
-    void testConnection().then(setConnected);
+    let active = true;
+    let unsubscribe: (() => void) | null = null;
 
-    const unsubscribe = onAuthStateChanged(auth, async nextUser => {
-      setAuthReady(false);
-      setAuthError("");
-      try {
-        if (nextUser?.emailVerified) await syncFirebaseSession(nextUser);
-        else await clearFirebaseSession();
-        await refreshBrowserSession({ reason: "login-check" });
-        setUser(nextUser);
-      } catch {
-        setUser(nextUser);
-        setAuthError("เชื่อมบัญชีกับ Workspace ไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง");
-      } finally { setAuthReady(true); }
-
-      if (nextUser?.email && nextUser.emailVerified) {
-        const accountPath = `users/${nextUser.uid}/private/account`;
-        const payload = buildAccountPayload({
-          uid: nextUser.uid,
-          displayName: nextUser.displayName,
-          email: nextUser.email,
-          updatedAt: serverTimestamp(),
+    void Promise.all([
+      import("firebase/auth"),
+      import("firebase/firestore"),
+      import("../lib/firebase"),
+    ])
+      .then(([authMod, firestoreMod, fb]) => {
+        if (!active) return;
+        void fb.testConnection().then(value => {
+          if (active) setConnected(value);
         });
-        void setDoc(doc(db, "users", nextUser.uid, "private", "account"), payload, {
-          merge: true,
-        }).catch(error => {
+
+        unsubscribe = authMod.onAuthStateChanged(fb.auth, async nextUser => {
+          if (!active) return;
+          setAuthReady(false);
+          setAuthError("");
+          try {
+            if (nextUser?.emailVerified) await syncFirebaseSession(nextUser);
+            else await clearFirebaseSession();
+            await refreshBrowserSession({ reason: "login-check" });
+            if (active) setUser(nextUser);
+          } catch {
+            if (active) {
+              setUser(nextUser);
+              setAuthError("เชื่อมบัญชีกับ Workspace ไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง");
+            }
+          } finally {
+            if (active) setAuthReady(true);
+          }
+
+          if (nextUser?.email && nextUser.emailVerified) {
+            const payload = fb.buildAccountPayload({
+              uid: nextUser.uid,
+              displayName: nextUser.displayName,
+              email: nextUser.email,
+              updatedAt: firestoreMod.serverTimestamp(),
+            });
+            void firestoreMod
+              .setDoc(
+                firestoreMod.doc(fb.db, "users", nextUser.uid, "private", "account"),
+                payload,
+                { merge: true }
+              )
+              .catch(() => {
+                if (active) setConnected(false);
+              });
+          }
+        });
+      })
+      .catch(() => {
+        if (active) {
           setConnected(false);
-        });
-      }
-    });
+          setAuthReady(true);
+        }
+      });
 
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
     setBusy(true);
     setAuthError("");
     try {
-      const credential = await signInWithPopup(auth, googleProvider);
+      const [authMod, fb] = await Promise.all([
+        import("firebase/auth"),
+        import("../lib/firebase"),
+      ]);
+      const credential = await authMod.signInWithPopup(fb.auth, fb.googleProvider);
       await syncFirebaseSession(credential.user);
       await refreshBrowserSession({ reason: "login-check" });
     } catch (error) {
@@ -115,8 +136,12 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
     setBusy(true);
     setAuthError("");
     try {
+      const [authMod, fb] = await Promise.all([
+        import("firebase/auth"),
+        import("../lib/firebase"),
+      ]);
       await clearFirebaseSession();
-      await signOut(auth);
+      await authMod.signOut(fb.auth);
       await refreshBrowserSession({ reason: "login-check" });
     } catch (error) {
       setAuthError(
@@ -139,9 +164,15 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
         signOutFirebase,
       }}
     >
-      <FirebaseErrorBoundary>{needsSession && !authReady
-        ? <main className="auth-page"><p role="status">กำลังเชื่อมบัญชี Workspace…</p></main>
-        : children}</FirebaseErrorBoundary>
+      <FirebaseErrorBoundary>
+        {needsSession && !authReady ? (
+          <main className="auth-page">
+            <p role="status">กำลังเชื่อมบัญชี Workspace…</p>
+          </main>
+        ) : (
+          children
+        )}
+      </FirebaseErrorBoundary>
     </FirebaseContext.Provider>
   );
 }
