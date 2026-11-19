@@ -8,7 +8,9 @@
     "start": "next start --hostname 0.0.0.0 --port 3000",
     "typecheck": "NODE_OPTIONS=--max-old-space-size=1024 tsc --noEmit",
     "agent:smoke": "tsx scripts/agent-smoke.ts",
-    "platform:migrate": "tsx scripts/migrate-platform.ts"
+    "platform:migrate": "tsx scripts/migrate-platform.ts",
+    "cloudflare:bundle": "opennextjs-cloudflare build",
+    "cloudflare:publish": "opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.0",
