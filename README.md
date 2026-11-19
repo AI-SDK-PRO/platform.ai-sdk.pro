@@ -1,12 +1,47 @@
 # ai-sdk.pro (monorepo รวม platform + web)
 
-รีโป canonical: **`z-ey3eiei/platform.ai-sdk.pro`** — รวมซอร์สจาก `ai-sdk-pro` และชั้นแพลตฟอร์ม (Firebase workspace, deploy, `create-webapp` CLI) ใน monorepo เดียว คำสั่งติดตั้งบน VPS: **[SETUP-VPS.md](SETUP-VPS.md)**
+รีโป canonical: **`z-ey3eiei/platform.ai-sdk.pro`** — รวมซอร์สจาก `ai-sdk-pro` และชั้นแพลตฟอร์ม (Firebase workspace, deploy, `create-webapp` CLI) ใน monorepo เดียว
 
-แพลตฟอร์มอิสระสำหรับสร้าง AI agents และเรียกใช้งานผ่าน AI SDK 6 UI Message Stream โดยตั้งใจให้ self-host บน VPS ของผู้ดูแลเอง ไม่ผูกกับ Vercel แชท public ใช้ BYOK: ผู้ใช้เลือกบริการ AI และกรอก API key ของตัวเอง คีย์ของเจ้าของเว็บไม่ถูกส่งให้ผู้ใช้
+แพลตฟอร์มสำหรับสร้าง AI agents และเรียกใช้งานผ่าน AI SDK 6 UI Message Stream **deploy หลักแนะนำ Vercel Hobby + Neon + Firebase** (import GitHub repo แล้ว deploy อัตโนมัติ ไม่ต้อง VPS) ดู **[infra/DEPLOY-VERCEL.md](infra/DEPLOY-VERCEL.md)**  
+Self-host บน VPS ยังมีใน [SETUP-VPS.md](SETUP-VPS.md) / [infra/DEPLOY-COOLIFY.md](infra/DEPLOY-COOLIFY.md) เป็น legacy
+
+แชท public ใช้ BYOK: ผู้ใช้เลือกบริการ AI และกรอก API key ของตัวเอง คีย์ของเจ้าของเว็บไม่ถูกส่งให้ผู้ใช้
 
 > ai-sdk.pro เป็นแหล่งข้อมูลและซอฟต์แวร์อิสระ ไม่ใช่เว็บไซต์ทางการของ Vercel โปรดอ้างอิงเอกสารทางการของ AI SDK สำหรับรายละเอียด API รุ่นล่าสุด
 
 > สำหรับการทำงานต่อจากเครื่องหรือเซสชันอื่น ให้อ่าน [PROJECT-MEMORY.md](PROJECT-MEMORY.md) ก่อน เพื่อดูสถานะล่าสุด จุดที่เก็บ source/runtime และข้อจำกัดที่ต้องรักษา
+
+## Deploy โดยไม่ใช้ VPS (แนะนำ)
+
+| ขั้น | ทำอะไร |
+| --- | --- |
+| 1 | สร้าง Neon Free → `pnpm --filter @aisdkpro/web platform:migrate` |
+| 2 | Vercel → Import GitHub repo (ใช้ [`vercel.json`](vercel.json) + [`Dockerfile.vercel`](Dockerfile.vercel)) |
+| 3 | ใส่ secrets ตาม [`.env.example`](.env.example) — **ขั้นต่ำ:** `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEON_DATABASE_URL`, `APP_ORIGINS`, `TRUST_PROXY=true`, `GITHUB_CLIENT_*`, `BYOK_ONLY=true` |
+| 4 | Firebase Console — เปิด Google + Email/Password, เพิ่ม Authorized domain (`*.vercel.app` และโดเมนจริง) |
+| 5 | GitHub OAuth App — callback `https://<โดเมน>/api/auth/callback/github` |
+| 6 | Smoke: `/api/health`, `/login`, `/workspace`, `/chat` |
+
+รายละเอียดทีละขั้น: **[infra/DEPLOY-VERCEL.md](infra/DEPLOY-VERCEL.md)**
+
+### ล็อกอินและ Workspace (ครบวงจร)
+
+1. **`/login`** — Google (Firebase) หรือสมัคร/เข้าด้วยอีเมลเมื่อตั้ง `NEXT_PUBLIC_FIREBASE_EMAIL_AUTH_ENABLED=true` ตอน build
+2. Session ฝั่งเว็บ — cookie `__Host-aisdk-session` หลังแลก Firebase `idToken` ที่ `/api/auth/firebase-session`
+3. **`/workspace`** — Neon เก็บ identity / import metadata
+4. **`/workspace/account`** — เชื่อม **GitHub OAuth** (คนละขั้นกับล็อกอิน Google) → ติดตั้ง GitHub App → Import repository
+
+คอนฟิก Firebase client อยู่ใน [`firebase-applet-config.json`](firebase-applet-config.json) — **ไม่ต้อง** ใส่ Firebase Admin SDK JSON บนเซิร์ฟเวอร์
+
+### Rate limit ผู้เยี่ยม (public `/api/chat`)
+
+เมื่อ `TRUST_PROXY=true` (บน Vercel ควรเปิด):
+
+- **20 คำขอ / นาที / client IP** (`x-forwarded-for` / `cf-connecting-ip`)
+- **120 คำขอ / นาทีทั้งระบบ** ต่อ instance (in-memory)
+
+เกินโควต้าได้ HTTP **429** พร้อม `Retry-After: 60`  
+บน serverless แต่ละ instance นับแยก — ถ้าต้องการ limit รวมศูนย์พิจารณา Upstash Redis ในเฟสถัดไป (ดู DEPLOY-VERCEL)
 
 ## สถานะ Deploy โปรเจกต์ผู้ใช้ · Staging
 
@@ -60,7 +95,7 @@ Production ใช้ `BYOK_ONLY=true` (เป็นค่าเริ่มต�
 
 ## ขอบเขตของ foundation ชุดนี้
 
-โค้ดที่มีอยู่จริงคือ public BYOK chat, GitHub login/Neon-backed personal workspace กับ read-only repository snapshot import, เอกสาร, starter source downloads, `@aisdkpro/client` สำหรับ UI Message Stream และ self-hosting ของแพลตฟอร์มเอง สถานะ Deploy ไป Coolify และ platform keys ระบุไว้ในหัวข้อสถานะล่าสุด ระบบ build/runtime สำหรับโปรเจกต์ของผู้ใช้ทั่วไป, deployment API สำหรับผู้ใช้, platform CLI และ npm publication ของ Client SDK ยังไม่อยู่ในขอบเขตนี้ ไม่จำลองสถานะว่า deploy repo แล้ว และยังไม่สร้าง Worker ใหม่เพื่อทำซ้ำกับ DevStack
+โค้ดที่มีอยู่จริงคือ public BYOK chat, Firebase (Google/email) login, GitHub link สำหรับ Neon-backed personal workspace กับ read-only repository snapshot import, เอกสาร, starter source downloads, `@aisdkpro/client` สำหรับ UI Message Stream และ self-hosting ของแพลตฟอร์มเอง สถานะ Deploy ไป Coolify และ platform keys ระบุไว้ในหัวข้อสถานะล่าสุด ระบบ build/runtime สำหรับโปรเจกต์ของผู้ใช้ทั่วไป, deployment API สำหรับผู้ใช้, platform CLI และ npm publication ของ Client SDK ยังไม่อยู่ในขอบเขตนี้ ไม่จำลองสถานะว่า deploy repo แล้ว และยังไม่สร้าง Worker ใหม่เพื่อทำซ้ำกับ DevStack
 
 ดังนั้น SDK ปัจจุบันรองรับการเรียก chat endpoint จริงเท่านั้น ไม่ได้สร้าง deploy/project API จำลอง ไฟล์ Docker/Caddy/GitHub Actions เป็น deployment foundation ส่วนงาน deployment จริงต้องตรวจ source revision, HTTP, DNS และ TLS บนเซิร์ฟเวอร์เป้าหมายก่อนรายงานสำเร็จ ไม่ควรสรุปจากไฟล์ configuration เพียงอย่างเดียว
 
@@ -112,7 +147,9 @@ for await (const event of client.stream(messages, {
 
 อ่าน API, browser compatibility และ jsDelivr example ได้ที่ [`packages/sdk/README.md`](packages/sdk/README.md)
 
-## Self-hosting
+## Self-hosting (legacy · VPS)
+
+ถ้าไม่ใช้ Vercel ให้ดู [infra/DEPLOY-VERCEL.md](infra/DEPLOY-VERCEL.md) ก่อน ส่วนนี้เป็น path เดิมบน VPS ของผู้ดูแลเอง
 
 คัดลอก template แล้วเติมค่าจริงบน server เท่านั้น:
 
@@ -122,7 +159,8 @@ chmod 600 .env
 set -a; . ./.env; set +a
 ```
 
-ตัวแปร `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL`, `AI_API_KEY`, `ANTHROPIC_API_KEY`, `APP_ORIGINS`, `MCP_SERVER_URL` และ `MCP_AUTH_TOKEN` เป็น server-only configuration DigitalOcean token เป็น credential สำหรับ infrastructure เท่านั้น ไม่ใช่ LLM key และต้องเก็บใน operator secret store แยกจาก app .env และ app container
+ตัวแปร `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL`, `AI_API_KEY`, `ANTHROPIC_API_KEY`, `APP_ORIGINS`, `MCP_SERVER_URL` และ `MCP_AUTH_TOKEN` เป็น server-only configuration ห้ามใช้ `NEXT_PUBLIC_` สำหรับ secrets  
+สำหรับ Vercel ใช้รายการ env เดียวกับ [`.env.example`](.env.example) ใน Project Settings (ไม่ต้องไฟล์ `.env` บนเซิร์ฟเวอร์)
 
 เริ่มต้นแบบ Docker:
 

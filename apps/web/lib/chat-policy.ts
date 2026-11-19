@@ -21,12 +21,29 @@ export function checkRateLimit(key: string, now = Date.now()) {
   globalWindow.count++;
   return true;
 }
+function validClientIp(value: string | null | undefined): string | null {
+  const ip = value?.trim();
+  if (!ip || ip.length > 64) return null;
+  return isIP(ip) ? ip : null;
+}
+
+function firstForwardedClientIp(forwardedFor: string): string | null {
+  const first = forwardedFor.split(",")[0]?.trim();
+  return validClientIp(first);
+}
+
 export function requestIdentity(request: Request) {
-  // Enable only behind a private listener whose trusted edge overwrites X-Real-IP.
-  // Never accept arbitrary client X-Forwarded-For as identity.
-  if (process.env.TRUST_PROXY === "true") {
-    const ip = request.headers.get("x-real-ip")?.trim();
-    if (ip && ip.length <= 64 && isIP(ip)) return ip;
+  // Enable only behind a trusted edge (Vercel, Cloudflare, Caddy). Client spoofed
+  // headers are ignored unless TRUST_PROXY=true on the host platform.
+  if (process.env.TRUST_PROXY !== "true") return "shared-anonymous";
+  const realIp = validClientIp(request.headers.get("x-real-ip"));
+  if (realIp) return realIp;
+  const cfIp = validClientIp(request.headers.get("cf-connecting-ip"));
+  if (cfIp) return cfIp;
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const clientIp = firstForwardedClientIp(forwarded);
+    if (clientIp) return clientIp;
   }
   return "shared-anonymous";
 }

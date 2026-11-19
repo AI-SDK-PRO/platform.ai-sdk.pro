@@ -40,15 +40,26 @@ describe("chat request policy", () => {
     vi.stubEnv("TRUST_PROXY", "true");
     expect(requestIdentity(req)).toBe("1.2.3.4");
   });
-  it("ignores malformed or comma-chained proxy identity even when proxy trust is enabled", () => {
+  it("uses the first x-forwarded-for hop when x-real-ip is missing or malformed", () => {
     vi.stubEnv("TRUST_PROXY", "true");
-    const req = new Request("https://ai-sdk.pro/api/chat", {
+    const vercelLike = new Request("https://ai-sdk.pro/api/chat", {
+      headers: { "x-forwarded-for": "203.0.113.20, 198.51.100.10" },
+    });
+    expect(requestIdentity(vercelLike)).toBe("203.0.113.20");
+    const chainedRealIp = new Request("https://ai-sdk.pro/api/chat", {
       headers: {
         "x-real-ip": "198.51.100.10, 203.0.113.20",
         "x-forwarded-for": "198.51.100.10",
       },
     });
-    expect(requestIdentity(req)).toBe("shared-anonymous");
+    expect(requestIdentity(chainedRealIp)).toBe("198.51.100.10");
+  });
+  it("prefers cf-connecting-ip behind Cloudflare when x-real-ip is absent", () => {
+    vi.stubEnv("TRUST_PROXY", "true");
+    const req = new Request("https://ai-sdk.pro/api/chat", {
+      headers: { "cf-connecting-ip": "198.51.100.25" },
+    });
+    expect(requestIdentity(req)).toBe("198.51.100.25");
   });
   it("bounds each anonymous quota", () => {
     const now = 1000000;
