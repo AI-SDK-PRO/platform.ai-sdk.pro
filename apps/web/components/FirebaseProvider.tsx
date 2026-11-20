@@ -100,14 +100,37 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
           setAuthReady(false);
           setAuthError("");
           try {
-            if (nextUser?.emailVerified) await syncFirebaseSession(nextUser);
-            else await clearFirebaseSession();
-            await refreshBrowserSession({ reason: "login-check" });
+            if (nextUser?.emailVerified) {
+              await syncFirebaseSession(nextUser);
+              await refreshBrowserSession({ reason: "login-check" });
+            } else {
+              // A signed-out visitor has not tried to authenticate. Do not
+              // DELETE a platform session on every public login page visit.
+              // Only reconcile when the server actually has a stale session.
+              try {
+                const session = await refreshBrowserSession({ reason: "login-check" });
+                if (session.signedIn) {
+                  await clearFirebaseSession();
+                  await refreshBrowserSession({ reason: "login-check" });
+                }
+              } catch (error) {
+                // Cleanup failure must not turn an untouched login screen
+                // into a misleading sign-in error.
+                console.warn("Could not reconcile inactive Workspace session", error);
+              }
+            }
             if (active) setUser(nextUser);
-          } catch {
+          } catch (error) {
+            console.error("Firebase Workspace session restoration failed", error);
             if (active) {
               setUser(nextUser);
-              setAuthError("เชื่อมบัญชีกับ Workspace ไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง");
+              // Session restoration is background work, not a login attempt.
+              // On a public page, leave the form available without an alert.
+              const privatePage = window.location.pathname.startsWith("/workspace") ||
+                window.location.pathname === "/deploy";
+              if (nextUser?.emailVerified && privatePage) {
+                setAuthError("เชื่อมบัญชีกับ Workspace ไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง");
+              }
             }
           } finally {
             if (active) setAuthReady(true);
