@@ -8,6 +8,7 @@ import {
   SITE_DESCRIPTION,
   SITE_ORIGIN,
 } from "../lib/seo-metadata";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const appSans = IBM_Plex_Sans_Thai({
   weight: ["400", "500", "600", "700"],
@@ -55,6 +56,7 @@ export default function RootLayout({
         <FirebaseProvider>
           <SessionActivity>{children}</SessionActivity>
         </FirebaseProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
