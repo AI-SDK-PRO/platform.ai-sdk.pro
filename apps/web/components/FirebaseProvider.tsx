@@ -33,6 +33,16 @@ function safeAuthError(error: unknown): string {
     case "auth/unauthorized-domain": return "โดเมนนี้ยังไม่ได้รับอนุญาตใน Firebase Authentication";
     case "auth/network-request-failed": return "เชื่อมต่อระบบล็อกอินไม่ได้ กรุณาตรวจเครือข่ายแล้วลองใหม่";
     case "auth/requires-recent-login": return "กรุณาออกจากระบบแล้วเข้าสู่ระบบอีกครั้ง ก่อนเชื่อมช่องทางใหม่";
+    case "auth/operation-not-supported-in-this-environment":
+    case "auth/web-storage-unsupported":
+      return "เบราว์เซอร์นี้ไม่รองรับการเข้าสู่ระบบแบบ Popup กรุณาเปิดเว็บใน Chrome หรือ Safari โดยตรง";
+    case "auth/internal-error":
+      return "ระบบ Firebase OAuth ตอบกลับผิดพลาด กรุณาตรวจ Google/GitHub Provider และ OAuth callback ใน Firebase Console";
+    case "auth/invalid-api-key":
+    case "auth/app-not-authorized":
+      return "การตั้งค่า Firebase สำหรับโดเมนนี้ไม่ถูกต้อง กรุณาตรวจ Firebase Project และ API key";
+    case "auth/cancelled-popup-request":
+      return "มีการเปิดหน้าต่างเข้าสู่ระบบใหม่แล้ว กรุณาดำเนินการในหน้าต่างล่าสุด";
     default: return "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่หรือตรวจการตั้งค่า Firebase";
   }
 }
@@ -100,14 +110,38 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
           setAuthReady(false);
           setAuthError("");
           try {
-            if (nextUser?.emailVerified) await syncFirebaseSession(nextUser);
-            else await clearFirebaseSession();
-            await refreshBrowserSession({ reason: "login-check" });
+            if (nextUser?.emailVerified) {
+              // Only establish a platform session after a verified Firebase login.
+              await syncFirebaseSession(nextUser);
+              await refreshBrowserSession({ reason: "login-check" });
+            } else {
+              // The login/signup page must work for visitors without an account.
+              // Do not send a DELETE for every anonymous visit; that request can
+              // fail (origin, network, stale cookie) and previously surfaced as
+              // a misleading login error before any user interaction.
+              try {
+                const session = await refreshBrowserSession({ reason: "login-check" });
+                if (session.signedIn) {
+                  // A server session must not outlive its Firebase identity.
+                  await clearFirebaseSession();
+                  await refreshBrowserSession({ reason: "login-check" });
+                }
+              } catch (error) {
+                // A public login page must remain usable while session cleanup
+                // is unavailable. Authentication calls still report real errors.
+                console.warn("Could not reconcile an inactive login session", error);
+              }
+            }
             if (active) setUser(nextUser);
-          } catch {
+          } catch (error) {
+            console.error("Firebase session restoration failed", error);
             if (active) {
               setUser(nextUser);
-              setAuthError("เชื่อมบัญชีกับ Workspace ไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง");
+              // Show a restoration error only if there is an actual verified
+              // Firebase user whose workspace session could not be created.
+              if (nextUser?.emailVerified) {
+                setAuthError("ไม่สามารถกู้คืนเซสชัน Workspace ได้ กรุณาลองเข้าสู่ระบบอีกครั้ง");
+              }
             }
           } finally {
             if (active) setAuthReady(true);
