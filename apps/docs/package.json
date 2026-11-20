@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@aisdkpro/ui": "*",
+    "@vercel/schedules": "0.0.3",
     "fumadocs-core": "16.18.4",
     "fumadocs-mdx": "15.5.3",
     "fumadocs-ui": "16.18.4",
