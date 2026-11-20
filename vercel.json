@@ -9,16 +9,7 @@
     "docs": {
       "root": "apps/docs",
       "framework": "nextjs",
-      "buildCommand": "npm run build",
-      "functions": {
-        "app/api/schedules/health/route.ts": {
-          "experimentalTriggers": [
-            {
-              "type": "schedule/v1beta"
-            }
-          ]
-        }
-      }
+      "buildCommand": "npm run build"
     }
   },
   "rewrites": [
@@ -40,13 +31,5 @@
         "service": "app"
       }
     }
-  ],
-  "schedules": {
-    "platform-health": {
-      "schedule": "0 9 * * *",
-      "timezone": "Asia/Bangkok",
-      "service": "docs",
-      "function": "app/api/schedules/health/route"
-    }
-  }
+  ]
 }
