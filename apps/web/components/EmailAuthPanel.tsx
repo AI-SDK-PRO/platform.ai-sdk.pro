@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, LoaderCircle, Mail, ShieldCheck } from "lucide-react";
 import { authClient } from "../lib/auth-client";
 import "./native-auth.css";
@@ -19,15 +19,19 @@ export default function EmailAuthPanel({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => { setMode(initialMode); setError(""); setMessage(""); }, [initialMode]);
 
   function setFormMode(next: Mode) {
     setMode(next);
     setMessage("");
     setError("");
     setPassword("");
+    setConfirmPassword("");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -40,6 +44,10 @@ export default function EmailAuthPanel({
           setError("กรุณากรอกชื่อและรหัสผ่าน 12–128 ตัวอักษร");
           return;
         }
+        if (password !== confirmPassword) {
+          setError("รหัสผ่านทั้งสองช่องไม่ตรงกัน");
+          return;
+        }
         const result = await authClient.signUp.email({
           name: name.trim(), email: email.trim().toLowerCase(),
           password, callbackURL: "/login?verified=1",
@@ -50,6 +58,7 @@ export default function EmailAuthPanel({
         } else {
           setMessage("หากอีเมลนี้สามารถสมัครได้ ระบบจะส่งลิงก์ยืนยันให้ กรุณาตรวจ Inbox และ Spam");
           setPassword("");
+          setConfirmPassword("");
         }
         return;
       }
@@ -123,6 +132,13 @@ export default function EmailAuthPanel({
               value={password} onChange={event => setPassword(event.target.value)}
               placeholder="อย่างน้อย 12 ตัวอักษร" />
           </>}
+          {mode === "sign-up" && <>
+            <label htmlFor="auth-confirm-password">ยืนยันรหัสผ่าน</label>
+            <input id="auth-confirm-password" type="password" required minLength={12} maxLength={128}
+              autoComplete="new-password" value={confirmPassword}
+              onChange={event => setConfirmPassword(event.target.value)}
+              placeholder="Confirm your password" />
+          </>}
           {error && <p role="alert" className="native-auth-error">{error}</p>}
           {message && <p role="status" className="native-auth-success">{message}</p>}
           <button type="submit" className="native-auth-submit" disabled={busy}>
@@ -137,7 +153,7 @@ export default function EmailAuthPanel({
             ) : (
               <>
                 <button type="button" onClick={() => setFormMode("forgot")}>ลืมรหัสผ่าน?</button>
-                <button type="button" onClick={() => { void resend(); }}>ส่งอีเมลยืนยันอีกครั้ง</button>
+                {message && email && <button type="button" onClick={() => { void resend(); }}>ส่งอีเมลยืนยันอีกครั้ง</button>}
               </>
             )}
           </div>
