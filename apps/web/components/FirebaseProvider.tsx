@@ -46,6 +46,7 @@ export interface FirebaseContextValue {
   signInWithGoogle: () => Promise<void>;
   signInWithGitHub: () => Promise<void>;
   linkGitHubSignIn: () => Promise<boolean>;
+  linkGoogleSignIn: () => Promise<boolean>;
   signOutFirebase: () => Promise<void>;
 }
 
@@ -58,6 +59,7 @@ const FirebaseContext = createContext<FirebaseContextValue>({
   signInWithGoogle: async () => undefined,
   signInWithGitHub: async () => undefined,
   linkGitHubSignIn: async () => false,
+  linkGoogleSignIn: async () => false,
   signOutFirebase: async () => undefined,
 });
 
@@ -211,6 +213,31 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
     }
   }, []);
 
+  const linkGoogleSignIn = useCallback(async () => {
+    const sdk = sdkRef.current;
+    const current = sdk?.fb.auth.currentUser;
+    if (!sdk || !current || !current.emailVerified) {
+      setAuthError("กรุณาเข้าสู่ระบบและยืนยันอีเมลก่อนเชื่อม Google");
+      return false;
+    }
+    if (current.providerData.some(provider => provider.providerId === "google.com")) return true;
+    setBusy(true);
+    setAuthError("");
+    try {
+      const result = await sdk.authMod.linkWithPopup(current, sdk.fb.googleProvider);
+      if (result.user.uid !== current.uid) throw new Error("Account identity changed unexpectedly.");
+      await syncFirebaseSession(result.user);
+      await refreshBrowserSession({ reason: "login-check" });
+      setUser(result.user);
+      return true;
+    } catch (error) {
+      setAuthError(safeAuthError(error));
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   const signOutFirebase = useCallback(async () => {
     setBusy(true);
     setAuthError("");
@@ -238,6 +265,7 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
         signInWithGoogle,
         signInWithGitHub,
         linkGitHubSignIn,
+        linkGoogleSignIn,
         signOutFirebase,
       }}
     >
