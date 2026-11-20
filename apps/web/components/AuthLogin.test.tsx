@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import AuthLogin from "./AuthLogin";
 
 // A visitor may encounter a background Firebase/session error. It must not
