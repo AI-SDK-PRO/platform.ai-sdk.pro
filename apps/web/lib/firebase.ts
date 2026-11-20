@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import {
   doc,
   getDocFromServer,
@@ -10,6 +11,28 @@ import {
 import firebaseConfig from "../../../firebase-applet-config.json";
 
 const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+// Auth API calls in this Firebase project currently reject requests that lack
+// a valid App Check attestation. The public reCAPTCHA Enterprise site key must
+// belong to this Firebase Web App and be supplied at Vercel build time.
+// Never set a debug token or disable enforcement to work around OAuth failures.
+if (typeof window !== "undefined") {
+  const siteKey = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY?.trim();
+  if (siteKey) {
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (error) {
+      // Avoid breaking the entire login page during hot reload; real setup
+      // errors will still surface through Firebase Auth requests.
+      if (!(error instanceof Error) || !/already initialized/i.test(error.message)) {
+        console.error("Firebase App Check initialization failed", error);
+      }
+    }
+  }
+}
 
 export const db: Firestore = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth: Auth = getAuth(app);
