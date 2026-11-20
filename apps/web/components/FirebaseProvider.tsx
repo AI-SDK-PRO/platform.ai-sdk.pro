@@ -139,7 +139,14 @@ export default function FirebaseProvider({ children }: { children: ReactNode }) 
               setUser(nextUser);
               // Show a restoration error only if there is an actual verified
               // Firebase user whose workspace session could not be created.
-              if (nextUser?.emailVerified) {
+              // Restoring a previously persisted identity is not a user-
+              // initiated login attempt. Keep public login/signup error-free
+              // until a button or form is actually submitted.
+              if (
+                nextUser?.emailVerified &&
+                (window.location.pathname.startsWith("/workspace") ||
+                 window.location.pathname === "/deploy")
+              ) {
                 setAuthError("ไม่สามารถกู้คืนเซสชัน Workspace ได้ กรุณาลองเข้าสู่ระบบอีกครั้ง");
               }
             }
