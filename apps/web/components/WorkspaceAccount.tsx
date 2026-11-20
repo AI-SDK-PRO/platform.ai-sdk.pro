@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Github, KeyRound, Link2, LoaderCircle, LockKeyhole, MailCheck, ShieldCheck } from "lucide-react";
 import WorkspaceChrome from "./WorkspaceChrome";
 import FirebaseSyncPanel from "./FirebaseSyncPanel";
-import { authClient } from "../lib/auth-client";
 import { useFirebase } from "./FirebaseProvider";
 import type { PlatformSession, PlatformStatus } from "../lib/platform-types";
 
@@ -28,7 +27,7 @@ export default function WorkspaceAccount() {
   const [logoutPending, setLogoutPending] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const { user: firebaseUser, authError: firebaseAuthError, busy: providerBusy, linkGitHubSignIn, linkGoogleSignIn } = useFirebase();
+  const { user: firebaseUser, authError: firebaseAuthError, busy: providerBusy, linkGitHubSignIn, linkGoogleSignIn, signOutFirebase } = useFirebase();
   const [googleLoginLinked, setGoogleLoginLinked] = useState(false);
   const [githubLoginLinked, setGithubLoginLinked] = useState(false);
   const [passwordLinked, setPasswordLinked] = useState(false);
@@ -97,25 +96,26 @@ export default function WorkspaceAccount() {
     void refresh().catch(() => setPhase("error"));
   }, [refresh]);
 
-  async function linkGithub() {
+  function linkGithub() {
     if (busy || !platform?.githubConfigured) return;
-    setBusy(true);setError("");setNotice("");
-    try {
-      const result = await authClient.linkSocial({
-        provider: "github",
-        callbackURL: "/workspace/account?linked=1",
-      });
-      if (result.error) throw new Error("Failed to begin GitHub linking.");
-    } catch {
-      setError("ไม่สามารถเริ่มเชื่อม GitHub ได้ กรุณาลองใหม่");
-      setBusy(false);
-    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    // GitHub App repository authorization is separate from Firebase GitHub Login.
+    // This endpoint binds the OAuth token to the currently authenticated
+    // Firebase/Neon workspace user and validates its signed OAuth state.
+    window.location.assign("/api/connections/github");
   }
 
   async function logout() {
     setLogoutPending(true);
-    try {await authClient.signOut();window.location.assign("/login");}
-    catch {setLogoutPending(false);setError("Sign out failed.");}
+    try {
+      await signOutFirebase();
+      window.location.assign("/login");
+    } catch {
+      setLogoutPending(false);
+      setError("ไม่สามารถออกจากระบบได้ กรุณาลองใหม่");
+    }
   }
 
   return <WorkspaceChrome user={session.user} onLogout={() => {void logout();}} logoutPending={logoutPending}>
@@ -182,7 +182,7 @@ export default function WorkspaceAccount() {
           <p className="workspace-account-help">
             {settings.github
               ? "GitHub OAuth เชื่อมแล้ว ติดตั้ง GitHub App เพื่อเลือก Repository ที่อนุญาต"
-              : "การอนุญาต Repository แยกจาก GitHub Login ข้างบน เพื่อให้ผู้ใช้เลือกสิทธิ์ได้ชัดเจน"}
+              : "การอนุญาต Repository แยกจาก GitHub Login และเชื่อมกับบัญชี Workspace เดิมเท่านั้น"}
           </p>
         </div>
 
