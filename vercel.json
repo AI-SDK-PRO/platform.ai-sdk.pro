@@ -9,7 +9,16 @@
     "docs": {
       "root": "apps/docs",
       "framework": "nextjs",
-      "buildCommand": "npm run build"
+      "buildCommand": "npm run build",
+      "functions": {
+        "app/api/schedules/health/route.ts": {
+          "experimentalTriggers": [
+            {
+              "type": "schedule/v1beta"
+            }
+          ]
+        }
+      }
     }
   },
   "rewrites": [
@@ -32,15 +41,6 @@
       }
     }
   ],
-  "functions": {
-    "apps/docs/app/api/schedules/health/route.ts": {
-      "experimentalTriggers": [
-        {
-          "type": "schedule/v1beta"
-        }
-      ]
-    }
-  },
   "schedules": {
     "platform-health": {
       "schedule": "0 9 * * *",
