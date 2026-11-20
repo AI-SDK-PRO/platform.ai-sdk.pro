@@ -166,3 +166,35 @@
 @media(prefers-reduced-motion: reduce) {
   .auth-page--simple .auth-spin { animation: none; }
 }
+
+.auth-page--simple .native-auth-verification {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #d5d5d5;
+  border-radius: 9px;
+  background: #fafafa;
+  text-align: left;
+  font-size: 13px;
+  color: #333;
+  overflow-wrap: anywhere;
+}
+.auth-page--simple .native-auth-verification button {
+  min-height: 40px;
+  padding: 8px 12px;
+  background: #fff;
+  color: #161616;
+  border: 1px solid #bbb;
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.auth-page--simple .native-auth-verification button:first-of-type {
+  background: #161616;
+  color: #fff;
+}
+.auth-page--simple .native-auth-verification button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
