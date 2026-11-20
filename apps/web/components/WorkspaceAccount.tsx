@@ -28,7 +28,8 @@ export default function WorkspaceAccount() {
   const [logoutPending, setLogoutPending] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const { user: firebaseUser, authError: firebaseAuthError, busy: providerBusy, linkGitHubSignIn } = useFirebase();
+  const { user: firebaseUser, authError: firebaseAuthError, busy: providerBusy, linkGitHubSignIn, linkGoogleSignIn } = useFirebase();
+  const [googleLoginLinked, setGoogleLoginLinked] = useState(false);
   const [githubLoginLinked, setGithubLoginLinked] = useState(false);
   const [passwordLinked, setPasswordLinked] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -36,9 +37,19 @@ export default function WorkspaceAccount() {
 
   useEffect(() => {
     if (!firebaseUser) return;
+    setGoogleLoginLinked(firebaseUser.providerData.some(item => item.providerId === "google.com"));
     setGithubLoginLinked(firebaseUser.providerData.some(item => item.providerId === "github.com"));
     setPasswordLinked(firebaseUser.providerData.some(item => item.providerId === "password"));
   }, [firebaseUser]);
+
+  async function linkGoogleLogin() {
+    setError(""); setNotice("");
+    const linked = await linkGoogleSignIn();
+    if (linked) {
+      setGoogleLoginLinked(true);
+      setNotice("เพิ่ม Google เป็นวิธีเข้าสู่ระบบของบัญชีนี้แล้ว โดยคง Workspace เดิม");
+    }
+  }
 
   async function linkGithubLogin() {
     setError(""); setNotice("");
@@ -124,10 +135,15 @@ export default function WorkspaceAccount() {
           <p>{settings.email}</p>
           <div className="workspace-account-state">
             <span><MailCheck size={15}/> Email: {settings.emailVerified ? "Verified" : "Not verified"}</span>
-            <span><LockKeyhole size={15}/> Google: {firebaseUser?.providerData.some(item => item.providerId === "google.com") ? "Connected" : "Not connected"}</span>
+            <span><LockKeyhole size={15}/> Google: {googleLoginLinked ? "Connected" : "Not connected"}</span>
             <span><Github size={15}/> GitHub Login: {githubLoginLinked ? "Connected" : "Not connected"}</span>
             <span><KeyRound size={15}/> Email / Password: {passwordLinked ? "Enabled" : "Not set"}</span>
           </div>
+          {!googleLoginLinked && <button type="button" className="workspace-button workspace-button-secondary"
+            disabled={providerBusy || !firebaseUser || !settings.emailVerified}
+            onClick={() => { void linkGoogleLogin(); }}>
+            Add Google as sign-in method
+          </button>}
           {!githubLoginLinked && <button type="button" className="workspace-button workspace-button-secondary"
             disabled={providerBusy || !firebaseUser || !settings.emailVerified}
             onClick={() => { void linkGithubLogin(); }}>
