@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Github, LoaderCircle } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -13,16 +13,21 @@ const EmailAuthPanel = dynamic(() => import("./EmailAuthPanel"), { ssr: false })
 
 export default function AuthLogin({ initialMode = "sign-in" }: { initialMode?: "sign-in" | "sign-up" }) {
   const router = useRouter();
+  const [oauthStarted, setOauthStarted] = useState(false);
   const { user, authReady, busy, authError, signInWithGoogle, signInWithGitHub } = useFirebase();
 
+  // Visiting the login page (or restoring an old session) is not a login attempt.
+  // Show provider errors only after a deliberate OAuth action.
+  useEffect(() => { setOauthStarted(false); }, [initialMode]);
+
   useEffect(() => {
-    if (!user || !authReady || authError) return;
+    if (!user || !authReady) return;
     let active = true;
     void refreshBrowserSession({ reason: "login-check" }).then(session => {
       if (active && session.signedIn) router.replace("/workspace");
     }).catch(() => {});
     return () => { active = false; };
-  }, [user, authReady, authError, router]);
+  }, [user, authReady, router]);
 
   return (
     <main className="auth-page auth-page--simple">
@@ -30,15 +35,15 @@ export default function AuthLogin({ initialMode = "sign-in" }: { initialMode?: "
         <section className="auth-card auth-card--simple" aria-labelledby="login-title">
           <Link className="simple-auth-brand" href="/" aria-label="ai-sdk.pro home">ai-sdk<span>.pro</span></Link>
           <h1 id="login-title">{initialMode === "sign-up" ? "Create your account" : "Welcome back"}</h1>
-          {authError && <div className="auth-alert" role="alert"><AlertCircle size={16} /><span>{authError}</span></div>}
+          {oauthStarted && authError && <div className="auth-alert" role="alert"><AlertCircle size={16} /><span>{authError}</span></div>}
           <div className="simple-auth-providers">
             <button type="button" className="auth-github-button" disabled={!authReady || busy}
-              onClick={() => { void signInWithGoogle(); }}>
+              onClick={() => { setOauthStarted(true); void signInWithGoogle(); }}>
               {busy ? <LoaderCircle className="auth-spin" size={18} /> : <span aria-hidden="true" className="simple-google-mark">G</span>}
               <span>Continue with Google</span>
             </button>
             <button type="button" className="auth-github-button" disabled={!authReady || busy}
-              onClick={() => { void signInWithGitHub(); }}>
+              onClick={() => { setOauthStarted(true); void signInWithGitHub(); }}>
               {busy ? <LoaderCircle className="auth-spin" size={18} /> : <Github size={20} aria-hidden="true" />}
               <span>Continue with GitHub</span>
             </button>
