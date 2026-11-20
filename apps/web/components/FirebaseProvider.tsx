@@ -37,7 +37,7 @@ function safeAuthError(error: unknown): string {
     case "auth/web-storage-unsupported":
       return "เบราว์เซอร์นี้ไม่รองรับการเข้าสู่ระบบแบบ Popup กรุณาเปิดเว็บใน Chrome หรือ Safari โดยตรง";
     case "auth/internal-error":
-      return "ระบบ Firebase OAuth ตอบกลับผิดพลาด กรุณาตรวจ Google/GitHub Provider และ OAuth callback ใน Firebase Console";
+      return "Firebase OAuth ทำงานไม่สำเร็จ กรุณาตรวจ App Check, Google/GitHub Provider และ Callback URL";
     case "auth/invalid-api-key":
     case "auth/app-not-authorized":
       return "การตั้งค่า Firebase สำหรับโดเมนนี้ไม่ถูกต้อง กรุณาตรวจ Firebase Project และ API key";
