@@ -1,18 +1,26 @@
-# Vercel Schedules and Cloudflare R2 (ai-sdk.pro)
+# Vercel Schedules and Cloudflare R2 â€” ai-sdk.pro
 
-## Schedule installed
-- The vercel-schedules skill was installed with npx skills add vercel/vercel-plugin --skill vercel-schedules.
-- A static schedule named platform-health is defined in the project-root vercel.json.
-- Runs at 09:00 in Asia/Bangkok every day (with Vercel plan jitter).
-- Private function in the docs Next.js service: app/api/schedules/health/route.
-- The handler performs a read-only GET on the existing platform health endpoint and logs success or failure. It does not import repositories, deploy user code, or mutate data.
+## Installed schedule
 
-## Before production
-1. Verify the service build output path under .vercel/output/services/docs/functions and that the function has only schedule/v1beta trigger.
-2. Run typecheck and Next.js build for apps/docs; test a Preview build through Vercel Services. Keep Verified Commits checks enabled.
-3. Once Preview is deployed, enable the Preview schedule temporarily and invoke platform-health; inspect execution history and verify no public route was created.
-4. Merge only after Vercel build and private schedule tests pass. Production schedules become active when their deployment becomes current.
-5. Check Vercel Dashboard > Schedules for runs. Do not change the target to a public URL merely to avoid Services support checks.
+- Skill: `vercel-schedules` installed with `npx skills add vercel/vercel-plugin --skill vercel-schedules`.
+- Static schedule: `platform-health`, every day at 09:00 in `Asia/Bangkok` (Vercel jitter applies).
+- Private handler: Docs Next.js service, `app/api/schedules/health/route`.
+- Behavior: read-only GET of `https://platform.ai-sdk.pro/api/health`. Failures are recorded in Schedule executions; no database changes, repository mutations or auto-deploys.
 
-## R2
-Cloudflare R2 can be accessed from Vercel via the S3-compatible API without moving the web hosting. However the Cloudflare account that owns ai-sdk.pro currently returns¶»§q«^
+## Release checklist
+
+1. Verify the Vercel Services build output contains the private function under `.vercel/output/services/docs/functions` with only `schedule/v1beta` as trigger. The `function` field in root `vercel.json` is its output path without `.func`.
+2. Docs TypeScript check and Next.js build passed in Vercel Sandbox; a **Vercel Services Preview deployment and invocation** are still required.
+3. Enable Preview schedule temporarily, invoke `platform-health` and inspect its execution history. Confirm no public HTTP route exposes the handler.
+4. Merge after Preview succeeds, keeping Verified Commits protection enabled. Static schedules activate when a Production deployment becomes current.
+5. Dashboard: Vercel Project â†’ Schedules. No public `path` fallback.
+
+## R2 storage
+
+The Cloudflare account owning `ai-sdk.pro` responded with error `10042`: enable R2 in the Cloudflare Dashboard before any bucket can be created.
+
+After activation, inventory existing buckets, then create/select a **private** bucket and scope R2 S3 API credentials to that bucket. Set `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` only as server-side Vercel secrets. Use S3 endpoint `https://<account-id>.r2.cloudflarestorage.com` with region `auto`.
+
+Keep Vercel Blob in place until authenticated upload/list/download and cross-user isolation on R2 are tested. Do not enable public bucket URLs or copy production objects automatically.
+
+References: https://vercel.com/docs/schedules and https://developers.cloudflare.com/r2/api/s3/presigned-urls/
