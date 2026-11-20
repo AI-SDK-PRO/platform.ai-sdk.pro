@@ -1,42 +1,57 @@
 "use client";
+import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, LoaderCircle, ShieldCheck } from "lucide-react";
-import SiteHeader from "./SiteHeader";
+import { AlertCircle, Github, LoaderCircle } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useFirebase } from "./FirebaseProvider";
+import { refreshBrowserSession } from "../lib/browser-session";
+import "./auth-simple.css";
 
 // Firebase Auth initializes browser-only modules; never evaluate the email UI in SSR.
 const EmailAuthPanel = dynamic(() => import("./EmailAuthPanel"), { ssr: false });
-import { useFirebase } from "./FirebaseProvider";
-import { refreshBrowserSession } from "../lib/browser-session";
 
-export default function AuthLogin({initialMode = "sign-in"}: {initialMode?: "sign-in" | "sign-up"}) {
+export default function AuthLogin({ initialMode = "sign-in" }: { initialMode?: "sign-in" | "sign-up" }) {
   const router = useRouter();
-  const { user, authReady, busy, authError, signInWithGoogle } = useFirebase();
+  const { user, authReady, busy, authError, signInWithGoogle, signInWithGitHub } = useFirebase();
+
   useEffect(() => {
     if (!user || !authReady || authError) return;
     let active = true;
     void refreshBrowserSession({ reason: "login-check" }).then(session => {
-      if (active && session.signedIn) router.replace("/");
+      if (active && session.signedIn) router.replace("/workspace");
     }).catch(() => {});
     return () => { active = false; };
   }, [user, authReady, authError, router]);
-  return <><SiteHeader /><main className="auth-page"><div className="auth-stage">
-    <section className="auth-card" aria-labelledby="login-title">
-      <div className="auth-card-mark" aria-hidden="true"><ShieldCheck size={25} strokeWidth={1.8}/></div>
-      <span className="auth-eyebrow">REPOSITORY WORKSPACE</span>
-      <h1 id="login-title">Your ai-sdk.pro account.</h1>
-      <p className="auth-intro">เข้าสู่ระบบด้วย Google เพื่อใช้ Workspace เดียวกันทั้งเว็บ แชต และ Deploy เชื่อม GitHub เพิ่มได้ภายหลังเมื่อต้องการนำเข้า Repository</p>
-      {authError && <div className="auth-alert" role="alert"><AlertCircle size={16}/><span>{authError}</span></div>}
-      <button type="button" className="auth-github-button" disabled={!authReady || busy}
-        onClick={() => { void signInWithGoogle(); }}>
-        {busy ? <LoaderCircle className="auth-spin" size={17}/> : <span aria-hidden="true">G</span>}
-        {busy ? "กำลังเข้าสู่ระบบ…" : "Continue with Google"}
-      </button>
-      {!authReady && <p className="auth-status" role="status">กำลังเชื่อมบัญชี…</p>}
-      {process.env.NEXT_PUBLIC_FIREBASE_EMAIL_AUTH_ENABLED === "true" && <EmailAuthPanel enabled initialMode={initialMode}/>}
-      <div className="auth-trust-row"><ShieldCheck size={15}/><span>Firebase ดูแลการเข้าสู่ระบบ ส่วน GitHub เชื่อมกับบัญชีนี้เพื่อ Import และ Deploy</span></div>
-      <p className="auth-privacy">โปรเจ็กต์และประวัติ Deploy ใช้บัญชี Workspace เดิม ข้อมูลส่วนตัวใน Firestore แยกตามผู้ใช้</p>
-    </section>
-  </div></main></>;
+
+  return (
+    <main className="auth-page auth-page--simple">
+      <div className="auth-stage">
+        <section className="auth-card auth-card--simple" aria-labelledby="login-title">
+          <Link className="simple-auth-brand" href="/" aria-label="ai-sdk.pro home">ai-sdk<span>.pro</span></Link>
+          <h1 id="login-title">{initialMode === "sign-up" ? "Create your account" : "Welcome back"}</h1>
+          {authError && <div className="auth-alert" role="alert"><AlertCircle size={16} /><span>{authError}</span></div>}
+          <div className="simple-auth-providers">
+            <button type="button" className="auth-github-button" disabled={!authReady || busy}
+              onClick={() => { void signInWithGoogle(); }}>
+              {busy ? <LoaderCircle className="auth-spin" size={18} /> : <span aria-hidden="true" className="simple-google-mark">G</span>}
+              <span>Continue with Google</span>
+            </button>
+            <button type="button" className="auth-github-button" disabled={!authReady || busy}
+              onClick={() => { void signInWithGitHub(); }}>
+              {busy ? <LoaderCircle className="auth-spin" size={18} /> : <Github size={20} aria-hidden="true" />}
+              <span>Continue with GitHub</span>
+            </button>
+          </div>
+          <div className="simple-auth-divider" role="separator"><span>OR</span></div>
+          <EmailAuthPanel enabled initialMode={initialMode} />
+          {!authReady && <p className="auth-status" role="status">Preparing secure sign-in…</p>}
+          <p className="simple-auth-footer">
+            {initialMode === "sign-up" ? <>Already have an account? <Link href="/login">Log in</Link></> :
+              <>New to ai-sdk.pro? <Link href="/signup">Create an account</Link></>}
+          </p>
+        </section>
+      </div>
+    </main>
+  );
 }
