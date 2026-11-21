@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
-import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
+import { authClient } from "../lib/auth-client";
 import { Brand } from "@aisdkpro/ui";
-import { auth } from "../lib/firebase";
 import "./native-auth.css";
 
 export default function ResetPasswordPanel() {
@@ -19,7 +18,7 @@ export default function ResetPasswordPanel() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("oobCode") || "";
+    const token = params.get("token") || "";
     // Keep the single-use action code out of history and referrers.
     window.history.replaceState({}, "", "/reset-password");
     if (!token || params.has("error")) {
@@ -27,15 +26,8 @@ export default function ResetPasswordPanel() {
       setChecking(false);
       return;
     }
-    let active = true;
-    void verifyPasswordResetCode(auth, token).then(() => {
-      if (active) { setCode(token); setInvalid(false); }
-    }).catch(() => {
-      if (active) setInvalid(true);
-    }).finally(() => {
-      if (active) setChecking(false);
-    });
-    return () => { active = false; };
+    setCode(token);
+    setChecking(false);
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -47,7 +39,11 @@ export default function ResetPasswordPanel() {
     setBusy(true);
     setMessage("");
     try {
-      await confirmPasswordReset(auth, code, password);
+      const result = await authClient.resetPassword({
+        token: code,
+        newPassword: password,
+      });
+      if (result.error) throw new Error("Reset failed.");
       setPassword("");
       setConfirm("");
       setCode("");
@@ -60,25 +56,71 @@ export default function ResetPasswordPanel() {
     }
   }
 
-  return <main className="auth-page">
-    <header className="auth-topbar"><Brand /><Link href="/login">Back to login</Link></header>
-    <section className="auth-stage"><div className="auth-card">
-      <h1>ตั้งรหัสผ่านใหม่</h1>
-      {checking ? <p role="status">กำลังตรวจสอบลิงก์…</p> :
-        invalid ? <p role="alert">ลิงก์ไม่ถูกต้องหรือหมดอายุแล้ว <Link href="/login">กลับไปขอลิงก์ใหม่</Link></p> :
-          done ? <p role="status">{message} <Link href="/login">Sign in</Link></p> :
-            <form className="native-auth-form" onSubmit={event => { void submit(event); }}>
+  return (
+    <main className="auth-page">
+      <header className="auth-topbar">
+        <Brand />
+        <Link href="/login">Back to login</Link>
+      </header>
+      <section className="auth-stage">
+        <div className="auth-card">
+          <h1>ตั้งรหัสผ่านใหม่</h1>
+          {checking ? (
+            <p role="status">กำลังตรวจสอบลิงก์…</p>
+          ) : invalid ? (
+            <p role="alert">
+              ลิงก์ไม่ถูกต้องหรือหมดอายุแล้ว{" "}
+              <Link href="/login">กลับไปขอลิงก์ใหม่</Link>
+            </p>
+          ) : done ? (
+            <p role="status">
+              {message} <Link href="/login">Sign in</Link>
+            </p>
+          ) : (
+            <form
+              className="native-auth-form"
+              onSubmit={event => {
+                void submit(event);
+              }}
+            >
               <label htmlFor="new-password">รหัสผ่านใหม่</label>
-              <input id="new-password" type="password" required minLength={12} maxLength={128}
-                autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} />
+              <input
+                id="new-password"
+                type="password"
+                required
+                minLength={12}
+                maxLength={128}
+                autoComplete="new-password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
               <label htmlFor="confirm-password">ยืนยันรหัสผ่าน</label>
-              <input id="confirm-password" type="password" required minLength={12} maxLength={128}
-                autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} />
-              {message && <p role="alert" className="native-auth-error">{message}</p>}
-              <button className="native-auth-submit" type="submit" disabled={busy}>
+              <input
+                id="confirm-password"
+                type="password"
+                required
+                minLength={12}
+                maxLength={128}
+                autoComplete="new-password"
+                value={confirm}
+                onChange={e => setConfirm(e.target.value)}
+              />
+              {message && (
+                <p role="alert" className="native-auth-error">
+                  {message}
+                </p>
+              )}
+              <button
+                className="native-auth-submit"
+                type="submit"
+                disabled={busy}
+              >
                 {busy ? "กำลังตรวจสอบ…" : "บันทึกรหัสผ่าน"}
               </button>
-            </form>}
-    </div></section>
-  </main>;
+            </form>
+          )}
+        </div>
+      </section>
+    </main>
+  );
 }

@@ -10,31 +10,20 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next/dynamic", () => ({
-  default: () => function DynamicStub() {
-    return null;
-  },
+  default: () =>
+    function DynamicStub() {
+      return null;
+    },
 }));
 
-// Exercise a stale background error, not just the context's empty default.
-vi.mock("../components/FirebaseProvider", () => ({
-  useFirebase: () => ({
-    user: null,
-    authReady: true,
-    busy: false,
-    authError: "เชื่อมบัญชีกับ Workspace ไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง",
-    signInWithGoogle: vi.fn(),
-    signInWithGitHub: vi.fn(),
-  }),
+vi.mock("./auth-client", () => ({
+  authClient: {
+    useSession: () => ({ data: null, isPending: false }),
+  },
 }));
 
 import AuthLogin from "../components/AuthLogin";
 import { isServerGeminiConfigured } from "./byok-policy";
-import {
-  clearSessionCookie,
-  FIREBASE_SESSION_COOKIE,
-  sessionCookie,
-} from "./firebase-session";
-
 beforeAll(() => {
   Object.assign(globalThis, { React });
 });
@@ -67,35 +56,7 @@ describe("Auth login and signup initial clean-session regression", () => {
   });
 });
 
-describe("Firebase session cookie and server Gemini configuration", () => {
-  it("issues HttpOnly __Host-aisdk-session cookies and supports iframe SameSite=None when embedded", async () => {
-    vi.stubEnv("BETTER_AUTH_SECRET", "synthetic-test-secret-0123456789abcdef");
-    const claims = {
-      sub: "user-123",
-      firebaseUid: "fb-123",
-      email: "ada@example.com",
-      name: "Ada",
-      image: null,
-    };
-
-    const topLevelCookie = await sessionCookie(
-      claims,
-      new Request("https://platform.ai-sdk.pro/api/auth/firebase-session")
-    );
-    expect(topLevelCookie).toContain(`${FIREBASE_SESSION_COOKIE}=`);
-    expect(topLevelCookie).toContain("HttpOnly; Secure; SameSite=Lax");
-
-    const iframeCookie = await sessionCookie(
-      claims,
-      new Request("https://platform.ai-sdk.pro/api/auth/firebase-session", {
-        headers: { "sec-fetch-dest": "iframe" },
-      })
-    );
-    expect(iframeCookie).toContain("SameSite=None; Partitioned");
-    expect(clearSessionCookie()).toContain(`${FIREBASE_SESSION_COOKIE}=;`);
-    expect(clearSessionCookie()).toContain("Max-Age=0");
-  });
-
+describe("server Gemini configuration", () => {
   it("enables server Gemini mode when GEMINI_API_KEY is configured and BYOK_ONLY is not true", () => {
     vi.stubEnv("GEMINI_API_KEY", "");
     vi.stubEnv("BYOK_ONLY", "");

@@ -24,16 +24,21 @@
     "cloudflare:dry-run": "npm run cloudflare:build && npm run cf:dry-run --workspace=apps/web"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.20.0",
     "turbo": "^2.6.0",
     "typescript": "5.9.3",
-    "vitest": "^2.1.4",
-    "@types/node": "^22.0.0",
-    "tsx": "^4.20.0"
+    "vitest": "^2.1.4"
   },
   "dependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
     "@google/genai": "^3.6.1",
-    "eslint": "^10.15.0",
-    "firebase": "^13.4.0"
+    "eslint": "^10.15.0"
+  },
+  "overrides": {
+    "better-auth": "1.7.12",
+    "@better-auth/core": "1.7.12",
+    "@better-auth/oauth-provider": "1.7.12",
+    "better-call": "1.4.4"
   }
 }

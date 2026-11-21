@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import type { FieldValue } from "firebase/firestore";
+type FieldValue = unknown;
 import {
   buildAccountPayload,
   buildNotePayload,
   buildPresetPayload,
   FIREBASE_LIMITS,
-} from "./firebase";
+} from "./legacy-firestore-policy";
 
 const rootDir = path.resolve(__dirname, "../../..");
 const stubTimestamp = {} as FieldValue;

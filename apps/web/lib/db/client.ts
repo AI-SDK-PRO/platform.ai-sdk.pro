@@ -1,19 +1,20 @@
 import "server-only";
 
-import { neon } from "@neondatabase/serverless";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 
 import { dbSchema } from "./schema";
 
 export type PlatformDatabase = NeonHttpDatabase<typeof dbSchema>;
-export type PlatformSql = ReturnType<typeof neon>;
+export type PlatformSql = NeonQueryFunction<false, false>;
 
 let sqlClient: PlatformSql | null = null;
 let databaseClient: PlatformDatabase | null = null;
 let databaseUrlForClient: string | null = null;
 
 export function getNeonDatabaseUrl(): string | null {
-  const value = process.env.NEON_DATABASE_URL?.trim();
+  const value =
+    process.env.DATABASE_URL?.trim() || process.env.NEON_DATABASE_URL?.trim();
   return value ? value : null;
 }
 

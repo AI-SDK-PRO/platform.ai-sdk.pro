@@ -1,177 +1,107 @@
 import "server-only";
-import { firebaseSessionUser } from "./firebase-session";
-import { readConnectedGitHubToken } from "./github-connection";
-
-import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { betterAuth } from "better-auth";
-import { and, eq } from "drizzle-orm";
-
+import { getAuth } from "./neon-auth";
 import { getPlatformDb } from "./db/client";
-import { account, authTables } from "./db/schema";
+import { user } from "./db/schema";
 import {
-  getPlatformConfig,
   PlatformAuthenticationError,
-  requirePlatformConfig,
-  trustedPlatformOrigins,
+  PlatformSetupRequiredError,
 } from "./platform-policy";
-import { PLATFORM_SESSION_POLICY } from "./session-policy";
-import { sendAuthEmail } from "./registration-email";
+import { readConnectedGitHubToken } from "./github-connection";
+export { getAuth } from "./neon-auth";
 
 const AUTH_ENDPOINTS = new Set([
   "POST sign-up/email",
   "POST sign-in/email",
+  "POST sign-in/social",
+  "POST sign-out",
+  "GET get-session",
   "POST send-verification-email",
   "GET verify-email",
   "POST request-password-reset",
+  "GET reset-password",
   "POST reset-password",
+  "POST update-user",
+  "POST change-password",
   "POST link-social",
-  "POST sign-in/social",
-  "GET callback/github",
-  "POST callback/github",
-  "GET get-session",
-  "POST get-session",
-  "POST sign-out",
+  "GET list-accounts",
 ]);
-
 export function isAllowedAuthEndpoint(method: string, path: string): boolean {
   return AUTH_ENDPOINTS.has(`${method} ${path}`);
 }
-
 export class GitHubConnectionRequiredError extends Error {
   readonly status = 409;
-  constructor() { super("Connect GitHub in account settings."); this.name = "GitHubConnectionRequiredError"; }
-}
-
-export class AuthPolicyError extends Error {
-  readonly status = 400;
-  constructor(message = "Invalid authentication request.") {
-    super(message);
-    this.name = "AuthPolicyError";
+  constructor() {
+    super("Connect GitHub in account settings.");
+    this.name = "GitHubConnectionRequiredError";
   }
 }
-
-let authInstance: ReturnType<typeof createPlatformAuth> | null = null;
-let authCacheKey = "";
-
-export function createPlatformAuth() {
-  const config = requirePlatformConfig();
-  const database = getPlatformDb();
-  if (!database) throw new Error("Platform database is unavailable.");
-  const secureCookies = config.baseURL.startsWith("https://");
-  const emailReady = config.emailRegistrationAvailable;
-
-  return betterAuth({
-    appName: "ai-sdk.pro",
-    baseURL: config.baseURL,
-    basePath: "/api/auth",
-    secret: config.secret,
-    database: drizzleAdapter(database, {
-      provider: "pg",
-      schema: authTables,
-      schemaName: "aisdk_pro",
-      transaction: false,
-      debugLogs: false,
-    }),
-    socialProviders: config.githubConfigured ? {
-      github: {
-        clientId: config.githubClientId,
-        clientSecret: config.githubClientSecret,
-        scope: ["read:user", "user:email"],
-      },
-    } : undefined,
-    emailAndPassword: {
-      enabled: emailReady,
-      minPasswordLength: 12,
-      maxPasswordLength: 128,
-      requireEmailVerification: true,
-      revokeSessionsOnPasswordReset: true,
-      sendResetPassword: async ({ user, token }) => {
-        const url = new URL("/reset-password", config.baseURL);
-        url.searchParams.set("token", token);
-        void sendAuthEmail(user.email, "Reset your ai-sdk.pro password",
-          "Reset your password using this single-use link: " + url.toString()).catch(() => {});
-      },
-    },
-    emailVerification: {
-      sendOnSignUp: emailReady,
-      sendOnSignIn: emailReady,
-      expiresIn: 3600,
-      autoSignInAfterVerification: false,
-      sendVerificationEmail: async ({ user, url }) => {
-        void sendAuthEmail(user.email, "Verify your ai-sdk.pro email",
-          "Verify your email to activate the account: " + url).catch(() => {});
-      },
-    },
-    account: {
-      accountLinking: {
-        enabled: true,
-        disableImplicitLinking: true,
-        allowDifferentEmails: true,
-      },
-      encryptOAuthTokens: true,
-      storeStateStrategy: "database",
-    },
-    session: PLATFORM_SESSION_POLICY,
-    advanced: {
-      useSecureCookies: secureCookies,
-      defaultCookieAttributes: {
-        httpOnly: true,
-        secure: secureCookies,
-        sameSite: secureCookies ? "none" : "lax",
-        path: "/",
-      },
-    },
-    trustedOrigins: trustedPlatformOrigins(config),
-    logger: { disabled: true },
+export async function getManagedSession() {
+  // Validate against Neon rather than accepting the former Firebase JWT or
+  // a cached client identity. Revoked sessions must not authorize API writes.
+  const { data, error } = await getAuth().getSession({
+    // @neon/auth 0.8.2 compares this query value to the STRING "true"
+    // before serializing the request, although Better Auth types it boolean.
+    query: { disableCookieCache: "true" as unknown as boolean },
   });
+  if (error)
+    throw new PlatformSetupRequiredError("Authentication service unavailable.");
+  return data;
 }
-
-export function getAuth() {
-  const config = requirePlatformConfig();
-  const database = getPlatformDb();
-  if (!database) throw new Error("Platform database is unavailable.");
-  const cacheKey = `${config.baseURL}:${config.githubClientId}:${config.neonDatabaseUrl}:${config.emailRegistrationAvailable}`;
-  if (!authInstance || authCacheKey !== cacheKey) {
-    authInstance = createPlatformAuth();
-    authCacheKey = cacheKey;
-  }
-  return authInstance;
+export async function getSessionUser(_request: Request) {
+  const session = await getManagedSession();
+  if (!session?.user || session.user.emailVerified !== true) return null;
+  const identity = session.user;
+  const db = getPlatformDb();
+  if (!db) throw new PlatformSetupRequiredError();
+  const now = new Date();
+  // Keep existing app foreign keys without managing passwords or auth sessions
+  // ourselves. Identity is keyed only by Neon's verified ID, never by email.
+  await db
+    .insert(user)
+    .values({
+      id: identity.id,
+      name: identity.name,
+      email: identity.email,
+      emailVerified: true,
+      image: identity.image ?? null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: user.id,
+      set: {
+        name: identity.name,
+        email: identity.email,
+        emailVerified: true,
+        image: identity.image ?? null,
+        updatedAt: now,
+      },
+    });
+  return { ...publicUser(identity), emailVerified: true };
 }
-
-export function resetAuthForTests(): void {
-  authInstance = null;
-  authCacheKey = "";
-}
-
-export async function getSessionUser(request: Request) {
-  return firebaseSessionUser(request);
-}
-
 export async function requireSessionUser(request: Request) {
-  const user = await getSessionUser(request);
-  if (!user) throw new PlatformAuthenticationError();
-  return user;
+  const current = await getSessionUser(request);
+  if (!current) throw new PlatformAuthenticationError();
+  return current;
 }
-
 export async function getGitHubAccessToken(
-  request: Request,
+  _request: Request,
   userId: string
 ): Promise<string> {
   const token = await readConnectedGitHubToken(userId);
   if (!token) throw new GitHubConnectionRequiredError();
   return token;
 }
-
-export function publicUser(user: {
+export function publicUser(value: {
   id: string;
   name: string;
   email: string;
   image?: string | null;
 }) {
   return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    image: user.image ?? null,
+    id: value.id,
+    name: value.name,
+    email: value.email,
+    image: value.image ?? null,
   };
 }

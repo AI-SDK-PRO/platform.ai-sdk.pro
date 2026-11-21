@@ -128,7 +128,7 @@ export default function PlatformTokensPage() {
   async function logout() {
     setLogoutPending(true);
     try {
-      await authClient.signOut();
+      const result = await authClient.signOut(); if (result.error) throw new Error("Sign out failed.");
       window.location.assign("/login");
     } catch {
       setLogoutPending(false);
