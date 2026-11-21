@@ -222,10 +222,10 @@ export default function EmailAuthPanel({
               onChange={event => setEmail(event.target.value)} placeholder="you@example.com" />
             {mode !== "forgot" && <>
               <label htmlFor="auth-password">รหัสผ่าน</label>
-              <input id="auth-password" type="password" required minLength={12} maxLength={128}
+              <input id="auth-password" type="password" required minLength={mode === "sign-up" ? 12 : 1} maxLength={128}
                 autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
                 value={password} onChange={event => setPassword(event.target.value)}
-                placeholder="อย่างน้อย 12 ตัวอักษร" />
+                placeholder={mode === "sign-up" ? "อย่างน้อย 12 ตัวอักษร" : "รหัสผ่านของคุณ"} />
             </>}
             {mode === "sign-up" && <>
               <label htmlFor="auth-confirm-password">ยืนยันรหัสผ่าน</label>
