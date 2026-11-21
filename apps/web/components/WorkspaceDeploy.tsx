@@ -156,7 +156,7 @@ export default function WorkspaceDeploy() {
 
   async function logout() {
     setLogoutPending(true);
-    try { await authClient.signOut(); window.location.assign("/login"); }
+    try { const result = await authClient.signOut(); if (result.error) throw new Error("Sign out failed."); window.location.assign("/login"); }
     catch { setLogoutPending(false); setError("Could not sign out."); }
   }
 

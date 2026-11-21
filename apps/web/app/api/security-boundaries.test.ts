@@ -1,11 +1,9 @@
+vi.mock("@/lib/neon-auth", () => ({ getAuth: vi.fn() }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getAuth: vi.fn(),
   getSession: vi.fn(),
-  readFirebaseSession: vi.fn(),
-  firebaseSessionUser: vi.fn(),
-  sessionCookie: vi.fn(),
   completeGitHubConnection: vi.fn(),
   requireSessionUser: vi.fn(),
   getGitHubAccessToken: vi.fn(),
@@ -15,7 +13,6 @@ const mocks = vi.hoisted(() => ({
   getOwnedRepositoryFile: vi.fn(),
   buildRepositorySnapshot: vi.fn(),
   persistRepositorySnapshot: vi.fn(),
-  toNextJsHandler: vi.fn(),
   authHandlerGet: vi.fn(),
   authHandlerPost: vi.fn(),
   createAssistantAgent: vi.fn(),
@@ -28,6 +25,7 @@ vi.mock("@/lib/auth", async importOriginal => {
   return {
     ...actual,
     getAuth: mocks.getAuth,
+    getManagedSession: mocks.getSession,
     getGitHubAccessToken: mocks.getGitHubAccessToken,
     requireSessionUser: mocks.requireSessionUser,
   };
@@ -51,21 +49,14 @@ vi.mock("@/agents/assistant-agent", () => ({
 vi.mock("ai", () => ({
   createAgentUIStreamResponse: mocks.createAgentUIStreamResponse,
 }));
-vi.mock("better-auth/next-js", () => ({
-  toNextJsHandler: mocks.toNextJsHandler,
-}));
-vi.mock("@/lib/firebase-session", () => ({
-  readFirebaseSession: mocks.readFirebaseSession,
-  firebaseSessionUser: mocks.firebaseSessionUser,
-  sessionCookie: mocks.sessionCookie,
-  clearSessionCookie: vi.fn(() => "cleared=1; Max-Age=0"),
-  FIREBASE_SESSION_COOKIE: "__Host-aisdk-session",
-}));
 vi.mock("@/lib/github-connection", () => ({
   completeGitHubConnection: mocks.completeGitHubConnection,
 }));
 
-import { PlatformAuthenticationError, resetPlatformRateLimitsForTests } from "@/lib/platform-policy";
+import {
+  PlatformAuthenticationError,
+  resetPlatformRateLimitsForTests,
+} from "@/lib/platform-policy";
 import { POST as postChat } from "./chat/route";
 import { POST as postAuthEndpoint } from "./auth/[...all]/route";
 import { POST as postSessionRenewal } from "./platform/session/route";
@@ -90,7 +81,11 @@ const userMessage = {
   parts: [{ type: "text", text: "Hello" }],
 };
 
-function requestWithJson(url: string, body: unknown, origin = "https://ai-sdk.pro") {
+function requestWithJson(
+  url: string,
+  body: unknown,
+  origin = "https://ai-sdk.pro"
+) {
   return new Request(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: origin },
@@ -107,8 +102,12 @@ function authContext(...path: string[]) {
 }
 
 beforeEach(() => {
+  vi.stubEnv("NEON_AUTH_BASE_URL", "https://auth.example.neon.tech/auth");
   vi.stubEnv("BETTER_AUTH_URL", "https://ai-sdk.pro");
-  vi.stubEnv("NEON_DATABASE_URL", "postgres://fixture:fixture@127.0.0.1/fixture");
+  vi.stubEnv(
+    "NEON_DATABASE_URL",
+    "postgres://fixture:fixture@127.0.0.1/fixture"
+  );
   vi.stubEnv("BETTER_AUTH_SECRET", "synthetic-test-secret-not-used-for-auth");
   vi.stubEnv("GITHUB_CLIENT_ID", "synthetic-client-id");
   vi.stubEnv("GITHUB_CLIENT_SECRET", "synthetic-client-secret");
@@ -120,19 +119,12 @@ beforeEach(() => {
   for (const mock of Object.values(mocks)) mock.mockReset();
   resetPlatformRateLimitsForTests();
 
-  mocks.getAuth.mockReturnValue({ api: { getSession: mocks.getSession } });
+  mocks.getAuth.mockReturnValue({
+    handler: () => ({ GET: mocks.authHandlerGet, POST: mocks.authHandlerPost }),
+  });
   mocks.authHandlerGet.mockResolvedValue(new Response("synthetic-auth-get"));
   mocks.authHandlerPost.mockResolvedValue(new Response("synthetic-auth-post"));
-  mocks.toNextJsHandler.mockReturnValue({
-    GET: mocks.authHandlerGet,
-    POST: mocks.authHandlerPost,
-  });
-  mocks.getSession.mockResolvedValue(Response.json(null));
-  mocks.readFirebaseSession.mockResolvedValue(null);
-  mocks.firebaseSessionUser.mockResolvedValue(null);
-  mocks.sessionCookie.mockResolvedValue(
-    "__Host-aisdk-session=synthetic; Path=/; HttpOnly; Secure; SameSite=Lax"
-  );
+  mocks.getSession.mockResolvedValue(null);
   mocks.completeGitHubConnection.mockResolvedValue(
     new Response("synthetic-github-callback", { status: 200 })
   );
@@ -207,7 +199,9 @@ describe("chat route security boundary", () => {
     const output = await response.text();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toBe("no-store, no-transform");
+    expect(response.headers.get("Cache-Control")).toBe(
+      "no-store, no-transform"
+    );
     expect(response.headers.get("Content-Type")).toContain("text/event-stream");
     expect(mocks.createAssistantAgent).toHaveBeenCalledWith(
       expect.any(AbortSignal),
@@ -218,50 +212,92 @@ describe("chat route security boundary", () => {
   });
 });
 
-describe("Firebase auth route allowlist boundary", () => {
-  it("returns gone for legacy Better Auth endpoints", async () => {
+describe("Neon auth route boundary", () => {
+  it("does not expose provider access-token APIs", async () => {
     const response = await postAuthEndpoint(
-      new Request("https://ai-sdk.pro/api/auth/get-access-token", {
-        method: "POST",
-        body: "{}",
-      }),
+      requestWithJson("https://ai-sdk.pro/api/auth/get-access-token", {}),
       authContext("get-access-token")
     );
-
-    expect(response.status).toBe(410);
+    expect(response.status).toBe(404);
     expect(mocks.getAuth).not.toHaveBeenCalled();
+  });
+  it("rejects cross-site sign-in before calling Neon", async () => {
+    const response = await postAuthEndpoint(
+      requestWithJson(
+        "https://ai-sdk.pro/api/auth/sign-in/email",
+        {},
+        "https://attacker.example"
+      ),
+      authContext("sign-in", "email")
+    );
+    expect(response.status).toBe(403);
+    expect(mocks.getAuth).not.toHaveBeenCalled();
+  });
+  it("dispatches trusted login to the same-origin Neon proxy", async () => {
+    const response = await postAuthEndpoint(
+      requestWithJson("https://ai-sdk.pro/api/auth/sign-in/email", {
+        email: "user@example.com",
+        password: "test-only",
+      }),
+      authContext("sign-in", "email")
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.authHandlerPost).toHaveBeenCalledWith(expect.any(Request), {
+      params: expect.any(Promise),
+    });
+  });
+  it("rejects hostile callback URLs and oversized auth bodies before proxying", async () => {
+    for (const body of [
+      { provider: "google", callbackURL: "https://attacker.example/steal" },
+      { password: "x".repeat(17000) },
+    ]) {
+      const response = await postAuthEndpoint(
+        requestWithJson("https://ai-sdk.pro/api/auth/sign-in/social", body),
+        authContext("sign-in", "social")
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(mocks.getAuth).not.toHaveBeenCalled();
+  });
+  it("supports empty-body sign-out without retaining a session on proxy success", async () => {
+    const response = await postAuthEndpoint(
+      new Request("https://ai-sdk.pro/api/auth/sign-out", {
+        method: "POST",
+        headers: { Origin: "https://ai-sdk.pro" },
+      }),
+      authContext("sign-out")
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.authHandlerPost).toHaveBeenCalled();
+  });
+  it("enforces registration password bounds on the server, not only in the form", async () => {
+    const response = await postAuthEndpoint(
+      requestWithJson("https://ai-sdk.pro/api/auth/sign-up/email", {
+        name: "Ada",
+        email: "ada@example.com",
+        password: "short",
+      }),
+      authContext("sign-up", "email")
+    );
+    expect(response.status).toBe(400);
     expect(mocks.authHandlerPost).not.toHaveBeenCalled();
   });
-
-  it("dispatches GitHub OAuth completion on callback/github GET", async () => {
-    const { GET: getAuthEndpoint } = await import("./auth/[...all]/route");
-    const response = await getAuthEndpoint(
-      new Request("https://ai-sdk.pro/api/auth/callback/github?code=synthetic"),
+  it("does not intercept Neon GitHub sign-in with repository OAuth", async () => {
+    const { GET } = await import("./auth/[...all]/route");
+    const response = await GET(
+      new Request("https://ai-sdk.pro/api/auth/callback/github"),
       authContext("callback", "github")
     );
-
-    expect(response.status).toBe(200);
-    expect(mocks.completeGitHubConnection).toHaveBeenCalledTimes(1);
-    expect(mocks.authHandlerPost).not.toHaveBeenCalled();
-  });
-
-  it("rejects legacy social sign-in with gone status", async () => {
-    const response = await postAuthEndpoint(
-      requestWithJson("https://ai-sdk.pro/api/auth/sign-in/social", {
-        provider: "github",
-        callbackURL: "https://attacker.example/steal-session",
-      }),
-      authContext("sign-in", "social")
-    );
-
-    expect(response.status).toBe(410);
-    expect(mocks.authHandlerPost).not.toHaveBeenCalled();
+    expect(response.status).toBe(404);
+    expect(mocks.completeGitHubConnection).not.toHaveBeenCalled();
   });
 });
 
 describe("protected workspace route security boundary", () => {
   it("does not reveal a repository to a request without a verified session", async () => {
-    mocks.requireSessionUser.mockRejectedValueOnce(new PlatformAuthenticationError());
+    mocks.requireSessionUser.mockRejectedValueOnce(
+      new PlatformAuthenticationError()
+    );
     const response = await getRepositoryDetail(
       new Request("https://ai-sdk.pro/api/repositories/repo-owned-by-user-a"),
       routeContext("repo-owned-by-user-a")
@@ -301,7 +337,9 @@ describe("protected workspace route security boundary", () => {
 
   it("scopes a safe file lookup to the authenticated tenant and hides a foreign snapshot", async () => {
     const response = await getRepositoryFile(
-      new Request("https://ai-sdk.pro/api/repositories/repo-a/files?path=src%2Findex.ts"),
+      new Request(
+        "https://ai-sdk.pro/api/repositories/repo-a/files?path=src%2Findex.ts"
+      ),
       routeContext("repo-a")
     );
 
@@ -365,20 +403,12 @@ describe("browser session renewal boundary", () => {
   });
 
   it("renews only through the trusted route and returns a sanitized no-store session envelope", async () => {
-    const expiresEpoch = Math.floor(Date.now() / 1000) + 10800;
-    mocks.readFirebaseSession.mockResolvedValue({
-      sub: userB.id,
-      firebaseUid: "firebase-uid-b",
-      email: userB.email,
-      emailVerified: true,
-      exp: expiresEpoch,
-    });
-    mocks.firebaseSessionUser.mockResolvedValue({
-      id: userB.id,
-      name: userB.name,
-      email: userB.email,
-      image: null,
-      emailVerified: true,
+    mocks.getSession.mockResolvedValue({
+      user: { ...userB, emailVerified: true },
+      session: {
+        expiresAt: new Date(Date.now() + 10800000),
+        token: "synthetic-bearer-token",
+      },
     });
     const request = new Request("https://ai-sdk.pro/api/platform/session", {
       method: "POST",
@@ -391,17 +421,17 @@ describe("browser session renewal boundary", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(response.headers.getSetCookie()).toHaveLength(1);
-    expect(mocks.sessionCookie).toHaveBeenCalledTimes(1);
+    expect(mocks.getSession).toHaveBeenCalledTimes(1);
     expect(body.user).toEqual({
       id: userB.id,
       name: userB.name,
       email: userB.email,
       image: null,
-      emailVerified: true,
     });
     expect(typeof body.expiresAt).toBe("string");
-    expect(new Date(String(body.expiresAt)).getTime()).toBeGreaterThan(Date.now());
+    expect(new Date(String(body.expiresAt)).getTime()).toBeGreaterThan(
+      Date.now()
+    );
     expect(JSON.stringify(body)).not.toContain("synthetic-bearer-token");
   });
 });

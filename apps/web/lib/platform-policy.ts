@@ -1,7 +1,5 @@
-import firebaseConfig from "../../../firebase-applet-config.json";
 import type { PlatformStatus } from "./platform-types";
 import { SNAPSHOT_LIMITS } from "./platform-types";
-import { SESSION_IDLE_SECONDS } from "./session-policy";
 
 export const DEFAULT_PLATFORM_URL = "https://platform.ai-sdk.pro";
 const CANONICAL_PLATFORM_ORIGINS = [
@@ -10,11 +8,6 @@ const CANONICAL_PLATFORM_ORIGINS = [
   "https://www.ai-sdk.pro",
 ] as const;
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
-const CONFIG_KEYS = [
-  "NEON_DATABASE_URL",
-  "BETTER_AUTH_SECRET",
-] as const;
-
 export class PlatformSetupRequiredError extends Error {
   readonly status = 503;
   constructor(message = "The platform is not configured yet.") {
@@ -64,23 +57,36 @@ function normalizeVercelOrigin(hostOrUrl: string | undefined): string | null {
   return parsed?.protocol === "https:" ? parsed.origin : null;
 }
 
-function isFirebaseEmailAuthReady(): boolean {
-  return Boolean(
-    firebaseConfig.projectId?.trim() &&
-      firebaseConfig.apiKey?.trim() &&
-      firebaseConfig.authDomain?.trim() &&
-      process.env.NEXT_PUBLIC_FIREBASE_EMAIL_AUTH_ENABLED !== "false" &&
-      process.env.PLATFORM_EMAIL_AUTH_ENABLED !== "false"
-  );
-}
-
 export function getPlatformConfig(): PlatformConfig {
   const configuredUrl =
     process.env.BETTER_AUTH_URL?.trim() || DEFAULT_PLATFORM_URL;
   const base = validBaseURL(configuredUrl);
-  const missingConfiguration: string[] = CONFIG_KEYS.filter(
-    key => !process.env[key]?.trim()
-  );
+  const databaseUrl =
+    process.env.DATABASE_URL?.trim() ||
+    process.env.NEON_DATABASE_URL?.trim() ||
+    "";
+  const secret =
+    process.env.NEON_AUTH_COOKIE_SECRET?.trim() ||
+    process.env.BETTER_AUTH_SECRET?.trim() ||
+    "";
+  const missingConfiguration: string[] = [];
+  if (!databaseUrl)
+    missingConfiguration.push("NEON_DATABASE_URL / DATABASE_URL");
+  if (secret.length < 32)
+    missingConfiguration.push("NEON_AUTH_COOKIE_SECRET / BETTER_AUTH_SECRET");
+  try {
+    const authUrl = new URL(process.env.NEON_AUTH_BASE_URL?.trim() || "");
+    if (
+      authUrl.protocol !== "https:" ||
+      authUrl.username ||
+      authUrl.password ||
+      authUrl.search ||
+      authUrl.hash
+    )
+      throw new Error();
+  } catch {
+    missingConfiguration.push("NEON_AUTH_BASE_URL");
+  }
   if (!base) missingConfiguration.push("BETTER_AUTH_URL");
   const rawAppSlug = process.env.GITHUB_APP_SLUG?.trim() || "ai-sdk-pro";
   const githubAppSlug = rawAppSlug
@@ -95,21 +101,17 @@ export function getPlatformConfig(): PlatformConfig {
   const baseURL = base?.origin ?? DEFAULT_PLATFORM_URL;
   const configured = Boolean(base) && missingConfiguration.length === 0;
   const githubConfigured = Boolean(
-    process.env.GITHUB_CLIENT_ID?.trim() && process.env.GITHUB_CLIENT_SECRET?.trim()
-  );
-  const legacyResendReady = Boolean(
-    process.env.PLATFORM_EMAIL_AUTH_ENABLED === "true" &&
-      process.env.RESEND_API_KEY?.trim() &&
-      process.env.RESEND_FROM_EMAIL?.trim().toLowerCase().endsWith("@mail.ai-sdk.pro")
+    process.env.GITHUB_CLIENT_ID?.trim() &&
+      process.env.GITHUB_CLIENT_SECRET?.trim()
   );
   const emailRegistrationAvailable = Boolean(
-    legacyResendReady || (configured && isFirebaseEmailAuthReady())
+    configured && process.env.PLATFORM_EMAIL_AUTH_ENABLED !== "false"
   );
   return {
     baseURL,
     baseOrigin: baseURL,
-    secret: process.env.BETTER_AUTH_SECRET?.trim() || "",
-    neonDatabaseUrl: process.env.NEON_DATABASE_URL?.trim() || "",
+    secret,
+    neonDatabaseUrl: databaseUrl,
     githubClientId: process.env.GITHUB_CLIENT_ID?.trim() || "",
     githubClientSecret: process.env.GITHUB_CLIENT_SECRET?.trim() || "",
     githubAppSlug,
@@ -137,7 +139,6 @@ export function platformStatus(): PlatformStatus {
       ? `https://github.com/apps/${encodeURIComponent(config.githubAppSlug)}/installations/new`
       : null,
     snapshotLimits: SNAPSHOT_LIMITS,
-    sessionIdleSeconds: SESSION_IDLE_SECONDS,
   };
 }
 
@@ -182,9 +183,17 @@ export function resolvePublicOrigin(
   const trusted = trustedPlatformOrigins(config);
   const candidates: string[] = [];
   if (process.env.TRUST_PROXY === "true") {
-    const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-    const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https";
-    if (forwardedHost && (forwardedProto === "https" || forwardedProto === "http")) {
+    const forwardedHost = request.headers
+      .get("x-forwarded-host")
+      ?.split(",")[0]
+      ?.trim();
+    const forwardedProto =
+      request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+      "https";
+    if (
+      forwardedHost &&
+      (forwardedProto === "https" || forwardedProto === "http")
+    ) {
       candidates.push(`${forwardedProto}://${forwardedHost}`);
     }
   }

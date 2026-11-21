@@ -1,14 +1,31 @@
-import { readFirebaseSession, firebaseSessionUser, sessionCookie } from '@/lib/firebase-session';
-import { isTrustedMutationOrigin, jsonError, noStoreHeaders } from '@/lib/platform-policy';
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-async function respond(request: Request, renew: boolean) {
-  if (renew && !isTrustedMutationOrigin(request)) return jsonError('Origin is not allowed.', 403);
-  const claims = await readFirebaseSession(request);
-  const user = await firebaseSessionUser(request);
-  const headers = noStoreHeaders();
-  if (renew && claims) headers.append('Set-Cookie', await sessionCookie(claims, request));
-  return Response.json({ user, expiresAt: claims ? new Date((renew ? Date.now() / 1000 + 10800 : Number(claims.exp)) * 1000).toISOString() : null }, { headers });
+import { getManagedSession, publicUser } from "@/lib/auth";
+import {
+  isTrustedMutationOrigin,
+  jsonError,
+  noStoreHeaders,
+  safePlatformError,
+} from "@/lib/platform-policy";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+async function respond(request: Request) {
+  if (request.method === "POST" && !isTrustedMutationOrigin(request))
+    return jsonError("Origin is not allowed.", 403);
+  try {
+    const session = await getManagedSession();
+    const current = session?.user?.emailVerified === true ? session : null;
+    return Response.json(
+      {
+        user: current ? publicUser(current.user) : null,
+        expiresAt: current
+          ? new Date(current.session.expiresAt).toISOString()
+          : null,
+      },
+      { headers: noStoreHeaders() }
+    );
+  } catch (error) {
+    const safe = safePlatformError(error);
+    return jsonError(safe.message, safe.status);
+  }
 }
-export const GET = (request: Request) => respond(request, false);
-export const POST = (request: Request) => respond(request, true);
+export const GET = respond;
+export const POST = respond;

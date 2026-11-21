@@ -2,17 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { LoaderCircle, UserRound } from "lucide-react";
 import WorkspaceChrome from "./WorkspaceChrome";
-import { useFirebase } from "./FirebaseProvider";
-import {
-  buildAccountPayload,
-  db,
-  FIREBASE_LIMITS,
-  handleFirestoreError,
-  OperationType,
-} from "../lib/firebase";
 import type { PlatformSession } from "../lib/platform-types";
 
 type Phase = "loading" | "signed-out" | "ready" | "error";
@@ -27,7 +18,6 @@ async function loadPlatformSession(): Promise<PlatformSession> {
 }
 
 export default function WorkspaceAbout() {
-  const { user: firebaseUser, authReady } = useFirebase();
   const [session, setSession] = useState<PlatformSession>({ user: null });
   const [phase, setPhase] = useState<Phase>("loading");
   const [displayName, setDisplayName] = useState("");
@@ -37,12 +27,6 @@ export default function WorkspaceAbout() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [logoutPending, setLogoutPending] = useState(false);
-  const [asyncError, setAsyncError] = useState<Error | null>(null);
-
-  if (asyncError) {
-    throw asyncError;
-  }
-
   const refreshSession = useCallback(async () => {
     const current = await loadPlatformSession();
     setSession(current);
@@ -58,68 +42,49 @@ export default function WorkspaceAbout() {
   }, [refreshSession]);
 
   useEffect(() => {
-    if (!authReady || !firebaseUser || phase !== "ready") {
-      return;
-    }
-    const path = `users/${firebaseUser.uid}/private/account`;
-    const ref = doc(db, "users", firebaseUser.uid, "private", "account");
-    const unsubscribe = onSnapshot(
-      ref,
-      snapshot => {
-        if (!snapshot.exists()) {
-          setDisplayName(firebaseUser.displayName ?? session.user?.name ?? "");
-          setAboutMe("");
-          setEmail(firebaseUser.email ?? session.user?.email ?? "");
-          return;
+    if (phase !== "ready") return;
+    let active = true;
+    void fetch("/api/platform/profile", {
+      cache: "no-store",
+      credentials: "same-origin",
+    })
+      .then(async response => {
+        if (!response.ok) throw new Error("Profile unavailable.");
+        return response.json();
+      })
+      .then(({ profile }) => {
+        if (active) {
+          setDisplayName(profile.displayName);
+          setAboutMe(profile.aboutMe);
+          setEmail(session.user?.email ?? "");
         }
-        const data = snapshot.data();
-        setDisplayName(String(data.displayName ?? firebaseUser.displayName ?? ""));
-        setAboutMe(String(data.aboutMe ?? ""));
-        setEmail(String(data.email ?? firebaseUser.email ?? ""));
-      },
-      firestoreError => {
-        try {
-          handleFirestoreError(firestoreError, OperationType.GET, path);
-        } catch (wrapped) {
-          setAsyncError(wrapped instanceof Error ? wrapped : new Error(String(wrapped)));
-        }
-      }
-    );
-    return () => unsubscribe();
-  }, [authReady, firebaseUser, phase, session.user?.email, session.user?.name]);
+      })
+      .catch(() => {
+        if (active)
+          setError("อ่านโปรไฟล์จาก Neon ไม่สำเร็จ กรุณาตรวจ migration");
+      });
+    return () => {
+      active = false;
+    };
+  }, [phase, session.user?.email]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!firebaseUser || saving || !firebaseUser.emailVerified) return;
+    if (!session.user || saving) return;
     setSaving(true);
     setNotice("");
     setError("");
-    const path = `users/${firebaseUser.uid}/private/account`;
     try {
-      const payload = buildAccountPayload({
-        uid: firebaseUser.uid,
-        displayName,
-        aboutMe,
-        email: firebaseUser.email ?? email,
-        updatedAt: serverTimestamp(),
+      const response = await fetch("/api/platform/profile", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName, aboutMe }),
       });
-      await setDoc(doc(db, "users", firebaseUser.uid, "private", "account"), payload, {
-        merge: true,
-      });
-      setNotice("บันทึกโปรไฟล์แล้ว — แสดงเฉพาะใน Workspace ของคุณ");
-    } catch (saveError) {
-      if (
-        saveError instanceof Error &&
-        saveError.message.includes("Missing or insufficient permissions")
-      ) {
-        try {
-          handleFirestoreError(saveError, OperationType.WRITE, path);
-        } catch (wrapped) {
-          setAsyncError(wrapped instanceof Error ? wrapped : new Error(String(wrapped)));
-        }
-      } else {
-        setError(saveError instanceof Error ? saveError.message : "Could not save profile.");
-      }
+      if (!response.ok) throw new Error("Could not save profile.");
+      setNotice("บันทึกโปรไฟล์ใน Neon แล้ว — แสดงเฉพาะใน Workspace ของคุณ");
+    } catch {
+      setError("บันทึกโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่");
     } finally {
       setSaving(false);
     }
@@ -129,7 +94,8 @@ export default function WorkspaceAbout() {
     setLogoutPending(true);
     try {
       const { authClient } = await import("../lib/auth-client");
-      await authClient.signOut();
+      const result = await authClient.signOut();
+      if (result.error) throw new Error("Sign out failed.");
       window.location.assign("/login");
     } catch {
       setLogoutPending(false);
@@ -146,11 +112,14 @@ export default function WorkspaceAbout() {
       logoutPending={logoutPending}
     >
       <section className="workspace-account-settings" aria-label="About me">
-        <span className="workspace-account-kicker">WORKSPACE / เกี่ยวกับฉัน</span>
+        <span className="workspace-account-kicker">
+          WORKSPACE / เกี่ยวกับฉัน
+        </span>
         <h1>โปรไฟล์ในพื้นที่แพลตฟอร์ม</h1>
         <p>
-          เก็บชื่อที่แสดงและข้อความแนะนำตัวสั้น ๆ ใน Firestore ส่วนตัวของคุณเท่านั้น
-          ไม่มีการเผยแพร่สาธารณะ และห้ามใส่ API key หรือรหัสผ่าน
+          เก็บชื่อที่แสดงและข้อความแนะนำตัวสั้น ๆ ใน Neon Postgres
+          ส่วนตัวของคุณเท่านั้น ไม่มีการเผยแพร่สาธารณะ และห้ามใส่ API key
+          หรือรหัสผ่าน
         </p>
 
         {phase === "loading" && (
@@ -183,18 +152,13 @@ export default function WorkspaceAbout() {
               <UserRound size={20} /> เกี่ยวกับฉัน
             </h2>
             <p className="workspace-account-help">{email}</p>
-            {!firebaseUser?.emailVerified && (
-              <p className="workspace-account-error">
-                ยืนยันอีเมลใน Firebase ก่อนบันทึกโปรไฟล์
-              </p>
-            )}
             <form className="workspace-account-form" onSubmit={saveProfile}>
               <label htmlFor="about-display-name">ชื่อที่แสดง</label>
               <input
                 id="about-display-name"
                 value={displayName}
                 onChange={event => setDisplayName(event.target.value)}
-                maxLength={FIREBASE_LIMITS.displayNameMaxLength}
+                maxLength={120}
                 autoComplete="name"
               />
               <label htmlFor="about-me-body">แนะนำตัวสั้น ๆ</label>
@@ -203,13 +167,13 @@ export default function WorkspaceAbout() {
                 rows={5}
                 value={aboutMe}
                 onChange={event => setAboutMe(event.target.value)}
-                maxLength={FIREBASE_LIMITS.aboutMeMaxLength}
+                maxLength={500}
                 placeholder="เช่น สร้าง agent สำหรับ docs, self-host บน VPS ของตัวเอง…"
               />
               <button
                 type="submit"
                 className="workspace-button workspace-button-primary"
-                disabled={saving || !firebaseUser?.emailVerified}
+                disabled={saving}
               >
                 {saving ? "กำลังบันทึก…" : "บันทึกโปรไฟล์"}
               </button>

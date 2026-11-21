@@ -1,5 +1,8 @@
 # ai-sdk.pro (monorepo รวม platform + web)
 
+> **Auth cutover:** แอปเปลี่ยนจาก Firebase เป็น **Neon Managed Auth + Neon Postgres** แล้วใน source นี้ ดู [คู่มือตั้งค่าและตรวจรับ](NEON-AUTH.md) ก่อน deploy ข้อความ Firebase ในบันทึกเก่าเป็นประวัติ ไม่ใช่เส้นทาง login ปัจจุบัน
+
+
 รีโป canonical: **`z-ey3eiei/platform.ai-sdk.pro`** — รวมซอร์สจาก `ai-sdk-pro` และชั้นแพลตฟอร์ม (Firebase workspace, deploy, `create-webapp` CLI) ใน monorepo เดียว
 
 แพลตฟอร์มสำหรับสร้าง AI agents และเรียกใช้งานผ่าน AI SDK 6 UI Message Stream **deploy หลักแนะนำ Vercel Hobby + Neon + Firebase** (import GitHub repo แล้ว deploy อัตโนมัติ ไม่ต้อง VPS) ดู **[infra/DEPLOY-VERCEL.md](infra/DEPLOY-VERCEL.md)**  
