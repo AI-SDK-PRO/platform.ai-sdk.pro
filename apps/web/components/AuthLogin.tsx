@@ -16,7 +16,7 @@ export default function AuthLogin({ initialMode = "sign-in" }: { initialMode?: "
   const { user, authReady, busy, authError, signInWithGoogle, signInWithGitHub } = useFirebase();
 
   useEffect(() => {
-    if (!user || !authReady || authError) return;
+    if (!user || !user.emailVerified || !authReady || authError) return;
     let active = true;
     void refreshBrowserSession({ reason: "login-check" }).then(session => {
       if (active && session.signedIn) router.replace("/workspace");

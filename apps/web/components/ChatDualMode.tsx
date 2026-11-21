@@ -23,7 +23,7 @@ import {
   subscribeToBrowserSession,
 } from "../lib/browser-session";
 
-type ChatMode = "byok" | "keyless";
+type ChatMode = "gemini" | "byok" | "keyless";
 
 export default function ChatDualMode() {
   const session = useSyncExternalStore(
@@ -32,6 +32,8 @@ export default function ChatDualMode() {
     getServerBrowserSessionSnapshot
   );
   const [mode, setMode] = useState<ChatMode>("byok");
+  const [serverGeminiConfigured, setServerGeminiConfigured] = useState(false);
+  const [serverModel, setServerModel] = useState("gemini-4-hydrogen");
   const choseMode = useRef(false);
   const edgeConfigured = Boolean(process.env.NEXT_PUBLIC_CF_AGENT_URL);
 
@@ -40,12 +42,33 @@ export default function ChatDualMode() {
   }, []);
 
   useEffect(() => {
-    if (!choseMode.current && edgeConfigured && session.signedIn) {
+    let active = true;
+    fetch("/api/config", { cache: "no-store" })
+      .then(response => (response.ok ? response.json() : null))
+      .then((data: { serverGeminiConfigured?: boolean; model?: string } | null) => {
+        if (!active || !data) return;
+        const geminiReady = data.serverGeminiConfigured === true;
+        setServerGeminiConfigured(geminiReady);
+        if (typeof data.model === "string" && data.model.trim()) {
+          setServerModel(data.model.trim());
+        }
+        if (!choseMode.current && geminiReady) {
+          setMode("gemini");
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!choseMode.current && !serverGeminiConfigured && edgeConfigured && session.signedIn) {
       setMode("keyless");
     } else if (!session.signedIn && mode === "keyless") {
-      setMode("byok");
+      setMode(serverGeminiConfigured ? "gemini" : "byok");
     }
-  }, [edgeConfigured, session.signedIn, mode]);
+  }, [edgeConfigured, serverGeminiConfigured, session.signedIn, mode]);
 
   function choose(next: ChatMode) {
     choseMode.current = true;
@@ -58,11 +81,27 @@ export default function ChatDualMode() {
       <nav className="chat-mode-bar" aria-label="Chat model and credential mode">
         <div className="chat-mode-brand">
           <span>AI Playground</span>
-          <StatusBadge status={mode === "keyless" ? "edge" : "byok"}>
-            {mode === "keyless" ? "Cloudflare Edge" : "BYOK"}
+          <StatusBadge
+            status={mode === "keyless" ? "edge" : mode === "gemini" ? "ready" : "byok"}
+          >
+            {mode === "keyless"
+              ? "Cloudflare Edge"
+              : mode === "gemini"
+                ? "Gemini Server"
+                : "BYOK"}
           </StatusBadge>
         </div>
         <div className="chat-mode-options">
+          {serverGeminiConfigured && (
+            <button
+              type="button"
+              className={mode === "gemini" ? "active" : ""}
+              aria-pressed={mode === "gemini"}
+              onClick={() => choose("gemini")}
+            >
+              Gemini Server ({serverModel})
+            </button>
+          )}
           <button
             type="button"
             className={mode === "byok" ? "active" : ""}
@@ -82,17 +121,22 @@ export default function ChatDualMode() {
           </button>
         </div>
         <span className="chat-mode-state">
-          {edgeConfigured
-            ? session.signedIn
-              ? "Signed in · Edge available"
-              : <Link href="/login">Sign in for Keyless</Link>
-            : "Edge worker URL not configured"}
+          {mode === "gemini"
+            ? `Server default · ${serverModel}`
+            : edgeConfigured
+              ? session.signedIn
+                ? "Signed in · Edge available"
+                : <Link href="/login">Sign in for Keyless</Link>
+              : "BYOK / Server mode"}
         </span>
       </nav>
       {mode === "keyless" && edgeConfigured && session.signedIn ? (
         <KeylessChat onSwitchToByok={() => choose("byok")} />
       ) : (
-        <LLMChat showHeader={false} />
+        <LLMChat
+          showHeader={false}
+          preferredMode={mode === "gemini" ? "gemini" : "byok"}
+        />
       )}
     </>
   );

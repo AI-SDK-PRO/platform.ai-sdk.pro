@@ -24,23 +24,32 @@ export async function readFirebaseSession(request: Request) {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, sessionKey(), {
-      algorithms: ['HS256'], issuer: 'aisdkpro-session', audience: config.projectId,
+      algorithms: ['HS256'], issuer: 'aisdkpro-session', audience: config.projectId, clockTolerance: 60,
     });
     if (typeof payload.sub !== 'string' || typeof payload.firebaseUid !== 'string' ||
         typeof payload.email !== 'string' || payload.emailVerified !== true) return null;
     return payload;
   } catch { return null; }
 }
-export async function sessionCookie(claims: JWTPayload) {
+function sessionCookieAttributes(request?: Request): string {
+  const isIframe =
+    request?.headers.get('sec-fetch-dest') === 'iframe' ||
+    request?.headers.get('sec-fetch-site') === 'cross-site';
+  if (isIframe) {
+    return 'Path=/; HttpOnly; Secure; SameSite=None; Partitioned';
+  }
+  return 'Path=/; HttpOnly; Secure; SameSite=Lax';
+}
+export async function sessionCookie(claims: JWTPayload, request?: Request) {
   const token = await new SignJWT({ firebaseUid: claims.firebaseUid, email: claims.email,
     name: claims.name, image: claims.image ?? null, emailVerified: true })
     .setProtectedHeader({ alg: 'HS256' }).setSubject(claims.sub!)
     .setIssuer('aisdkpro-session').setAudience(config.projectId)
     .setIssuedAt().setExpirationTime(`${SESSION_SECONDS}s`).sign(sessionKey());
-  return `${FIREBASE_SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_SECONDS}`;
+  return `${FIREBASE_SESSION_COOKIE}=${token}; ${sessionCookieAttributes(request)}; Max-Age=${SESSION_SECONDS}`;
 }
-export function clearSessionCookie() {
-  return `${FIREBASE_SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+export function clearSessionCookie(request?: Request) {
+  return `${FIREBASE_SESSION_COOKIE}=; ${sessionCookieAttributes(request)}; Max-Age=0`;
 }
 export async function firebaseSessionUser(request: Request) {
   const claims = await readFirebaseSession(request);
@@ -50,13 +59,19 @@ export async function firebaseSessionUser(request: Request) {
     image: typeof claims.image === 'string' ? claims.image : null };
 }
 export async function exchangeFirebaseIdentity(idToken: string, request: Request, legacyUserId?: string) {
-  const { payload } = await jwtVerify(idToken, keys, {
-    algorithms: ['RS256'], issuer: `https://securetoken.google.com/${config.projectId}`,
-    audience: config.projectId, maxTokenAge: '65m',
-  });
+  let payload: JWTPayload;
+  try {
+    ({ payload } = await jwtVerify(idToken, keys, {
+      algorithms: ['RS256'], issuer: `https://securetoken.google.com/${config.projectId}`,
+      audience: config.projectId, maxTokenAge: '65m', clockTolerance: 60,
+    }));
+  } catch {
+    throw new PlatformAuthenticationError('Firebase sign-in token is invalid or expired. Please try again.');
+  }
   const now = Math.floor(Date.now() / 1000);
-  if (!payload.sub || payload.sub.length > 128 || typeof payload.email !== 'string' ||
-      payload.email_verified !== true || typeof payload.auth_time !== 'number' || payload.auth_time > now)
+  if (!payload.sub || payload.sub.length > 128 || typeof payload.email !== 'string' || !payload.email)
+    throw new PlatformAuthenticationError('Your sign-in provider did not supply an email address.');
+  if (payload.email_verified !== true || typeof payload.auth_time !== 'number' || payload.auth_time > now + 60)
     throw new PlatformAuthenticationError('Verify your Firebase email before signing in.');
   const current = await readFirebaseSession(request);
   if (now - payload.auth_time > SESSION_SECONDS && current?.firebaseUid !== payload.sub)

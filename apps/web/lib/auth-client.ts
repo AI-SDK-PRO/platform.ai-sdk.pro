@@ -2,6 +2,7 @@
 import { confirmPasswordReset, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
 import { auth } from './firebase';
 import { clearFirebaseSession, syncFirebaseSession } from './firebase-session-client';
+import { refreshBrowserSession } from './browser-session';
 
 type Result = { error: { status: number; message: string } | null };
 async function result(action: () => Promise<void>): Promise<Result> {
@@ -11,8 +12,9 @@ async function result(action: () => Promise<void>): Promise<Result> {
 export const authClient = {
   signOut: async () => {
     // Clear the HttpOnly workspace session before changing browser auth state.
-    await clearFirebaseSession();
+    await clearFirebaseSession().catch(() => undefined);
     await signOut(auth);
+    await refreshBrowserSession({ reason: 'login-check' }).catch(() => undefined);
     return { error: null };
   },
   linkSocial: async (_input: { provider: string; callbackURL?: string }) => {

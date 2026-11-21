@@ -7,7 +7,7 @@ async function respond(request: Request, renew: boolean) {
   const claims = await readFirebaseSession(request);
   const user = await firebaseSessionUser(request);
   const headers = noStoreHeaders();
-  if (renew && claims) headers.append('Set-Cookie', await sessionCookie(claims));
+  if (renew && claims) headers.append('Set-Cookie', await sessionCookie(claims, request));
   return Response.json({ user, expiresAt: claims ? new Date((renew ? Date.now() / 1000 + 10800 : Number(claims.exp)) * 1000).toISOString() : null }, { headers });
 }
 export const GET = (request: Request) => respond(request, false);

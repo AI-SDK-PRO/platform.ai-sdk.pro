@@ -3,11 +3,13 @@ import { z } from "zod";
 import { createAssistantAgent } from "@/agents/assistant-agent";
 import {
   BYOKPolicyError,
+  isServerGeminiConfigured,
   requireBYOK,
   safeProviderErrorMessage,
   safeProviderStreamError,
   upstreamErrorStatus,
 } from "@/lib/byok-policy";
+import { createGeminiChatResponse } from "@/lib/gemini-agent";
 import {
   checkRateLimit,
   corsHeaders,
@@ -75,6 +77,14 @@ export async function POST(request: Request) {
         "Expected messages with id, user/assistant role, and UIMessage parts.",
         400
       );
+    }
+
+    if (body.byok === undefined && isServerGeminiConfigured()) {
+      return await createGeminiChatResponse({
+        uiMessages: body.messages,
+        signal,
+        headers,
+      });
     }
 
     let byok;

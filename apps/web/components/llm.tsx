@@ -55,6 +55,7 @@ export interface LLMChatProps {
   /** Public model/config labels only, not credentials. */
   configApi?: string;
   showHeader?: boolean;
+  preferredMode?: "gemini" | "byok";
 }
 
 type ConnectionTone = "neutral" | "ready" | "warning";
@@ -67,6 +68,8 @@ type ConfigState = {
   loaded: boolean;
   byokEnabled: boolean;
   byokRequired: boolean;
+  serverGeminiConfigured: boolean;
+  serverModel: string;
   error: boolean;
 };
 
@@ -88,6 +91,7 @@ export default function LLMChat({
   api = "/api/chat",
   configApi = "/api/config",
   showHeader = true,
+  preferredMode,
 }: LLMChatProps = {}) {
   const initialProvider = BYOK_PROVIDERS[0];
   const [provider, setProvider] = useState<BYOKProviderId>(initialProvider.id);
@@ -102,12 +106,22 @@ export default function LLMChat({
     loaded: false,
     byokEnabled: true,
     byokRequired: true,
+    serverGeminiConfigured: false,
+    serverModel: "gemini-4-hydrogen",
     error: false,
   });
   const [input, setInput] = useState("");
   const [copied, setCopied] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const credentialsRef = useRef<BYOKCredentials | null>(null);
+  const effectiveMode: "gemini" | "byok" =
+    preferredMode === "byok"
+      ? "byok"
+      : configState.serverGeminiConfigured && (preferredMode === "gemini" || preferredMode === undefined)
+        ? "gemini"
+        : "byok";
+  const modeRef = useRef<"gemini" | "byok">(effectiveMode);
+  modeRef.current = effectiveMode;
 
   useEffect(() => {
     const prompt = new URLSearchParams(window.location.search).get("prompt");
@@ -125,7 +139,9 @@ export default function LLMChat({
           body: {
             ...(body ?? {}),
             messages,
-            byok: credentialsRef.current,
+            ...(modeRef.current === "byok" && credentialsRef.current
+              ? { byok: credentialsRef.current }
+              : {}),
           },
         }),
       }),
@@ -146,8 +162,10 @@ export default function LLMChat({
   const selectedProvider = providerFor(provider);
   const selectedModel = selectedProvider.models.find(item => item.id === model);
   const draftIsValid = Boolean(apiKey.trim() && selectedModel);
-  const canSend =
-    configState.byokEnabled && isValidCredentials(activeCredentials);
+  const usingServerGemini = effectiveMode === "gemini";
+  const canSend = usingServerGemini
+    ? configState.serverGeminiConfigured
+    : configState.byokEnabled && isValidCredentials(activeCredentials);
 
   useEffect(() => {
     let disposed = false;
@@ -159,6 +177,8 @@ export default function LLMChat({
         return response.json() as Promise<{
           byokEnabled?: boolean;
           byokRequired?: boolean;
+          serverGeminiConfigured?: boolean;
+          model?: string;
         }>;
       })
       .then(data => {
@@ -167,6 +187,11 @@ export default function LLMChat({
           loaded: true,
           byokEnabled: data.byokEnabled !== false,
           byokRequired: data.byokRequired !== false,
+          serverGeminiConfigured: data.serverGeminiConfigured === true,
+          serverModel:
+            typeof data.model === "string" && data.model.trim()
+              ? data.model.trim()
+              : "gemini-4-hydrogen",
           error: false,
         });
       })
@@ -177,6 +202,8 @@ export default function LLMChat({
           loaded: true,
           byokEnabled: true,
           byokRequired: true,
+          serverGeminiConfigured: false,
+          serverModel: "gemini-4-hydrogen",
           error: true,
         });
       });
@@ -302,7 +329,9 @@ export default function LLMChat({
     }
   }
 
-  const modelLabel = selectedModel?.label ?? "Choose a model";
+  const modelLabel = usingServerGemini
+    ? configState.serverModel
+    : selectedModel?.label ?? "Choose a model";
 
   return (
     <>
@@ -317,7 +346,7 @@ export default function LLMChat({
           <div className="playground-actions">
             <span className="model-tag">
               <i />
-              {activeCredentials?.model ?? modelLabel}
+              {usingServerGemini ? configState.serverModel : activeCredentials?.model ?? modelLabel}
             </span>
             <button
               className="new-chat"
@@ -336,23 +365,25 @@ export default function LLMChat({
           </div>
         </div>
         <div className="chat-content">
-          <ProviderSettings
-            provider={provider}
-            model={model}
-            apiKey={apiKey}
-            activeCredentials={activeCredentials}
-            byokEnabled={configState.byokEnabled}
-            byokRequired={configState.byokRequired}
-            configLoading={!configState.loaded}
-            configError={configState.error}
-            connectAttempted={connectAttempted}
-            connectionStatus={connectionStatus}
-            onProviderChange={handleProviderChange}
-            onModelChange={handleModelChange}
-            onApiKeyChange={handleApiKeyChange}
-            onConnect={connectInMemory}
-            onForget={forgetKey}
-          />
+          {!usingServerGemini && (
+            <ProviderSettings
+              provider={provider}
+              model={model}
+              apiKey={apiKey}
+              activeCredentials={activeCredentials}
+              byokEnabled={configState.byokEnabled}
+              byokRequired={configState.byokRequired}
+              configLoading={!configState.loaded}
+              configError={configState.error}
+              connectAttempted={connectAttempted}
+              connectionStatus={connectionStatus}
+              onProviderChange={handleProviderChange}
+              onModelChange={handleModelChange}
+              onApiKeyChange={handleApiKeyChange}
+              onConnect={connectInMemory}
+              onForget={forgetKey}
+            />
+          )}
           {!messages.length ? (
             <section className="chat-welcome">
               <span className="welcome-mark">

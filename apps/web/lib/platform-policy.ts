@@ -1,8 +1,14 @@
+import firebaseConfig from "../../../firebase-applet-config.json";
 import type { PlatformStatus } from "./platform-types";
 import { SNAPSHOT_LIMITS } from "./platform-types";
 import { SESSION_IDLE_SECONDS } from "./session-policy";
 
 export const DEFAULT_PLATFORM_URL = "https://platform.ai-sdk.pro";
+const CANONICAL_PLATFORM_ORIGINS = [
+  "https://platform.ai-sdk.pro",
+  "https://ai-sdk.pro",
+  "https://www.ai-sdk.pro",
+] as const;
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const CONFIG_KEYS = [
   "NEON_DATABASE_URL",
@@ -50,6 +56,24 @@ function validBaseURL(value: string): URL | null {
   }
 }
 
+function normalizeVercelOrigin(hostOrUrl: string | undefined): string | null {
+  const trimmed = hostOrUrl?.trim();
+  if (!trimmed) return null;
+  const candidate = trimmed.includes("://") ? trimmed : `https://${trimmed}`;
+  const parsed = validBaseURL(candidate);
+  return parsed?.protocol === "https:" ? parsed.origin : null;
+}
+
+function isFirebaseEmailAuthReady(): boolean {
+  return Boolean(
+    firebaseConfig.projectId?.trim() &&
+      firebaseConfig.apiKey?.trim() &&
+      firebaseConfig.authDomain?.trim() &&
+      process.env.NEXT_PUBLIC_FIREBASE_EMAIL_AUTH_ENABLED !== "false" &&
+      process.env.PLATFORM_EMAIL_AUTH_ENABLED !== "false"
+  );
+}
+
 export function getPlatformConfig(): PlatformConfig {
   const configuredUrl =
     process.env.BETTER_AUTH_URL?.trim() || DEFAULT_PLATFORM_URL;
@@ -58,7 +82,10 @@ export function getPlatformConfig(): PlatformConfig {
     key => !process.env[key]?.trim()
   );
   if (!base) missingConfiguration.push("BETTER_AUTH_URL");
-  const githubAppSlug = process.env.GITHUB_APP_SLUG?.trim() || "ai-sdk-pro";
+  const rawAppSlug = process.env.GITHUB_APP_SLUG?.trim() || "ai-sdk-pro";
+  const githubAppSlug = rawAppSlug
+    .replace(/^https:\/\/github\.com\/apps\//i, "")
+    .replace(/\/.*$/, "");
   if (
     githubAppSlug &&
     !/^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/i.test(githubAppSlug)
@@ -66,13 +93,17 @@ export function getPlatformConfig(): PlatformConfig {
     missingConfiguration.push("GITHUB_APP_SLUG");
   }
   const baseURL = base?.origin ?? DEFAULT_PLATFORM_URL;
+  const configured = Boolean(base) && missingConfiguration.length === 0;
   const githubConfigured = Boolean(
     process.env.GITHUB_CLIENT_ID?.trim() && process.env.GITHUB_CLIENT_SECRET?.trim()
   );
-  const emailRegistrationAvailable = Boolean(
+  const legacyResendReady = Boolean(
     process.env.PLATFORM_EMAIL_AUTH_ENABLED === "true" &&
-    process.env.RESEND_API_KEY?.trim() &&
-    process.env.RESEND_FROM_EMAIL?.trim().toLowerCase().endsWith("@mail.ai-sdk.pro")
+      process.env.RESEND_API_KEY?.trim() &&
+      process.env.RESEND_FROM_EMAIL?.trim().toLowerCase().endsWith("@mail.ai-sdk.pro")
+  );
+  const emailRegistrationAvailable = Boolean(
+    legacyResendReady || (configured && isFirebaseEmailAuthReady())
   );
   return {
     baseURL,
@@ -85,7 +116,7 @@ export function getPlatformConfig(): PlatformConfig {
     githubConfigured,
     emailRegistrationAvailable,
     missingConfiguration: [...new Set(missingConfiguration)],
-    configured: Boolean(base) && missingConfiguration.length === 0,
+    configured,
   };
 }
 
@@ -112,6 +143,20 @@ export function platformStatus(): PlatformStatus {
 
 export function trustedPlatformOrigins(config = getPlatformConfig()): string[] {
   const origins = [config.baseOrigin];
+  if (
+    CANONICAL_PLATFORM_ORIGINS.includes(
+      config.baseOrigin as (typeof CANONICAL_PLATFORM_ORIGINS)[number]
+    )
+  ) {
+    origins.push(...CANONICAL_PLATFORM_ORIGINS);
+  }
+  for (const vercelOrigin of [
+    normalizeVercelOrigin(process.env.VERCEL_URL),
+    normalizeVercelOrigin(process.env.VERCEL_BRANCH_URL),
+    normalizeVercelOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL),
+  ]) {
+    if (vercelOrigin) origins.push(vercelOrigin);
+  }
   const extraOrigins = (process.env.APP_ORIGINS ?? "")
     .split(",")
     .map(value => value.trim())
@@ -130,10 +175,56 @@ export function trustedPlatformOrigins(config = getPlatformConfig()): string[] {
   return [...new Set(origins)];
 }
 
+export function resolvePublicOrigin(
+  request: Request,
+  config = getPlatformConfig()
+): string {
+  const trusted = trustedPlatformOrigins(config);
+  const candidates: string[] = [];
+  if (process.env.TRUST_PROXY === "true") {
+    const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+    const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https";
+    if (forwardedHost && (forwardedProto === "https" || forwardedProto === "http")) {
+      candidates.push(`${forwardedProto}://${forwardedHost}`);
+    }
+  }
+  const originHeader = request.headers.get("origin");
+  if (originHeader) candidates.push(originHeader);
+  try {
+    const reqUrl = new URL(request.url);
+    candidates.push(reqUrl.origin);
+    if (reqUrl.protocol === "http:" && LOOPBACK_HOSTS.has(reqUrl.hostname)) {
+      return reqUrl.origin;
+    }
+  } catch {
+    // Fallback to config.baseURL below.
+  }
+  for (const candidate of candidates) {
+    if (trusted.includes(candidate)) return candidate;
+  }
+  return config.baseURL;
+}
+
 export function isTrustedMutationOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return false;
-  return trustedPlatformOrigins().includes(origin);
+  if (trustedPlatformOrigins().includes(origin)) return true;
+  try {
+    const incoming = new URL(origin);
+    const reqUrl = new URL(request.url);
+    if (
+      incoming.protocol === "http:" &&
+      LOOPBACK_HOSTS.has(incoming.hostname) &&
+      reqUrl.protocol === "http:" &&
+      LOOPBACK_HOSTS.has(reqUrl.hostname) &&
+      incoming.origin === reqUrl.origin
+    ) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 export function noStoreHeaders(): Headers {
@@ -156,8 +247,15 @@ export function safePlatformError(error: unknown): {
 } {
   if (error instanceof PlatformSetupRequiredError)
     return { message: "Platform setup is required.", status: 503 };
-  if (error instanceof PlatformAuthenticationError)
-    return { message: "Authentication is required.", status: 401 };
+  if (error instanceof PlatformAuthenticationError) {
+    const message =
+      error.message &&
+      error.message.length <= 180 &&
+      !/secret|token|password|private|postgres|sql/i.test(error.message)
+        ? error.message
+        : "Authentication is required.";
+    return { message, status: 401 };
+  }
   if (error instanceof Error && error.name === "GitHubConnectionRequiredError")
     return { message: "Connect GitHub in account settings.", status: 409 };
   if (error instanceof Error && error.name === "GitHubPermissionError")

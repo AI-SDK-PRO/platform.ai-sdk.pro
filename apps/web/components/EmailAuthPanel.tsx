@@ -21,6 +21,14 @@ type Mode = "sign-in" | "sign-up" | "forgot";
 function messageForFirebaseError(error: unknown): string {
   const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
   switch (code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่";
+    case "auth/email-already-in-use":
+      return "อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบหรือใช้ลืมรหัสผ่าน";
+    case "auth/invalid-email":
+      return "รูปแบบอีเมลไม่ถูกต้อง";
     case "auth/operation-not-allowed":
       return "Email / Password ยังไม่เปิดใน Firebase Authentication โปรดตรวจ Sign-in providers";
     case "auth/weak-password":
@@ -31,8 +39,12 @@ function messageForFirebaseError(error: unknown): string {
       return "เชื่อมต่อ Firebase ไม่สำเร็จ กรุณาตรวจเครือข่าย";
     case "auth/unauthorized-domain":
       return "Firebase ยังไม่ได้อนุญาตโดเมนของแพลตฟอร์มนี้";
+    case "auth/internal-error":
+      return "เกิดข้อผิดพลาดภายในระหว่างเชื่อม Firebase Authentication กรุณาตรวจ App Check / Authorized Domains";
     default:
-      return "ไม่สามารถดำเนินการได้ กรุณาตรวจสอบข้อมูลและลองใหม่";
+      return error instanceof Error && error.message && !error.message.startsWith("Firebase:")
+        ? error.message
+        : "ไม่สามารถดำเนินการได้ กรุณาตรวจสอบข้อมูลและลองใหม่";
   }
 }
 
@@ -126,7 +138,7 @@ export default function EmailAuthPanel({
         setMessage("บัญชีนี้ยังไม่ได้ยืนยันอีเมล กรุณายืนยันก่อนเข้า Workspace");
         return;
       }
-      await syncFirebaseSession(credential.user);
+      await syncFirebaseSession(credential.user, true);
       const session = await refreshBrowserSession({ reason: "login-check" });
       if (!session.signedIn) throw new Error("Workspace session was not established.");
       window.location.assign("/workspace");
@@ -173,14 +185,13 @@ export default function EmailAuthPanel({
         setMessage("ยังไม่ได้รับการยืนยันอีเมล กรุณาเปิดลิงก์ที่ได้รับก่อน");
         return;
       }
-      await current.getIdToken(true);
-      await syncFirebaseSession(current);
+      await syncFirebaseSession(current, true);
       const session = await refreshBrowserSession({ reason: "login-check" });
       if (!session.signedIn) throw new Error("Workspace session not ready.");
       setVerificationPending(null);
       window.location.assign("/workspace");
     } catch (caught) {
-      setError("ไม่สามารถเปิด Workspace ได้ กรุณาลองเข้าสู่ระบบใหม่หลังยืนยันอีเมล");
+      setError(messageForFirebaseError(caught));
     } finally {
       setBusy(false);
     }

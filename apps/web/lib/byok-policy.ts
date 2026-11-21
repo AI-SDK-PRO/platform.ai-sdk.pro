@@ -80,6 +80,10 @@ export function isBYOKRequired() {
   return process.env.BYOK_ONLY !== "false";
 }
 
+export function isServerGeminiConfigured() {
+  return Boolean(process.env.GEMINI_API_KEY?.trim()) && process.env.BYOK_ONLY !== "true";
+}
+
 export function requireBYOK(value: unknown): BYOKCredentials | undefined {
   if (value === undefined) {
     if (isBYOKRequired())

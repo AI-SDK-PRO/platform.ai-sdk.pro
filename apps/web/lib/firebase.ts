@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from "firebase/app-check";
+import { getAuth, GithubAuthProvider, GoogleAuthProvider, type Auth } from "firebase/auth";
 import {
   doc,
   getDocFromServer,
@@ -11,10 +12,42 @@ import firebaseConfig from "../../../firebase-applet-config.json";
 
 const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
+let appCheckInstance: AppCheck | null = null;
+
+export function getFirebaseAppCheckSiteKey(): string {
+  return (
+    process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY?.trim() ||
+    (firebaseConfig as { recaptchaSiteKey?: string }).recaptchaSiteKey?.trim() ||
+    ""
+  );
+}
+
+export function ensureAppCheck(): AppCheck | null {
+  if (typeof window === "undefined" || appCheckInstance) return appCheckInstance;
+  const siteKey = getFirebaseAppCheckSiteKey();
+  if (!siteKey) return null;
+  try {
+    appCheckInstance = initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(siteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+  } catch (error) {
+    console.warn("Firebase App Check initialization skipped:", error instanceof Error ? error.message : String(error));
+  }
+  return appCheckInstance;
+}
+
+if (typeof window !== "undefined") {
+  ensureAppCheck();
+}
+
 export const db: Firestore = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth: Auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
+export const githubProvider = new GithubAuthProvider();
+githubProvider.addScope("user:email");
+githubProvider.setCustomParameters({ allow_signup: "true" });
 
 export { app, firebaseConfig };
 

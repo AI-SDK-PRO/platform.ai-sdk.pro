@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { account } from './db/schema';
 import { getPlatformDb } from './db/client';
 import { firebaseSessionUser, readCookie, sessionKey } from './firebase-session';
-import { getPlatformConfig, noStoreHeaders, PlatformAuthenticationError, PlatformSetupRequiredError } from './platform-policy';
+import { getPlatformConfig, noStoreHeaders, PlatformAuthenticationError, PlatformSetupRequiredError, resolvePublicOrigin } from './platform-policy';
 
 const COOKIE = '__Host-aisdk-github-link';
 const PROVIDER = 'github-firebase';
@@ -37,13 +37,14 @@ export async function beginGitHubConnection(request: Request) {
   if (!user) throw new PlatformAuthenticationError();
   const config = getPlatformConfig();
   if (!config.githubClientId || !config.githubClientSecret) throw new PlatformSetupRequiredError('GitHub connection is not configured.');
+  const publicOrigin = resolvePublicOrigin(request, config);
   const state = randomBytes(32).toString('base64url');
   const signed = await new SignJWT({ state }).setProtectedHeader({ alg: 'HS256' })
-    .setSubject(user.id).setIssuer('aisdkpro-github-link').setAudience(config.baseURL)
+    .setSubject(user.id).setIssuer('aisdkpro-github-link').setAudience(publicOrigin)
     .setIssuedAt().setExpirationTime('10m').sign(sessionKey());
   const url = new URL('https://github.com/login/oauth/authorize');
   url.searchParams.set('client_id', config.githubClientId);
-  url.searchParams.set('redirect_uri', new URL('/api/auth/callback/github', config.baseURL).toString());
+  url.searchParams.set('redirect_uri', new URL('/api/auth/callback/github', publicOrigin).toString());
   url.searchParams.set('scope', 'read:user user:email');
   url.searchParams.set('state', state);
   const headers = noStoreHeaders();
@@ -53,6 +54,7 @@ export async function beginGitHubConnection(request: Request) {
 }
 export async function completeGitHubConnection(request: Request) {
   const config = getPlatformConfig();
+  const publicOrigin = resolvePublicOrigin(request, config);
   const headers = noStoreHeaders();
   headers.append('Set-Cookie', `${COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`);
   headers.set('Referrer-Policy', 'no-referrer');
@@ -60,7 +62,7 @@ export async function completeGitHubConnection(request: Request) {
     const user = await firebaseSessionUser(request);
     const signed = readCookie(request, COOKIE);
     if (!user || !signed) throw new Error('Missing link session.');
-    const { payload } = await jwtVerify(signed, sessionKey(), { algorithms: ['HS256'], issuer: 'aisdkpro-github-link', audience: config.baseURL });
+    const { payload } = await jwtVerify(signed, sessionKey(), { algorithms: ['HS256'], issuer: 'aisdkpro-github-link', audience: publicOrigin });
     const url = new URL(request.url);
     if (payload.sub !== user.id || typeof payload.state !== 'string' || url.searchParams.get('state') !== payload.state || url.searchParams.has('error'))
       throw new Error('Invalid link state.');
@@ -69,7 +71,7 @@ export async function completeGitHubConnection(request: Request) {
     const response = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify({ client_id: config.githubClientId, client_secret: config.githubClientSecret, code,
-        redirect_uri: new URL('/api/auth/callback/github', config.baseURL).toString() }), signal: AbortSignal.timeout(15000),
+        redirect_uri: new URL('/api/auth/callback/github', publicOrigin).toString() }), signal: AbortSignal.timeout(15000),
     });
     const data = await response.json() as { access_token?: string; expires_in?: number; scope?: string };
     if (!response.ok || !data.access_token) throw new Error('GitHub authorization failed.');
@@ -86,9 +88,9 @@ export async function completeGitHubConnection(request: Request) {
       scope: data.scope ?? '', updatedAt: new Date() };
     if (existing) await db.update(account).set(values).where(and(eq(account.id, existing.id), eq(account.userId, user.id)));
     else await db.insert(account).values({ id: randomUUID(), userId: user.id, providerId: PROVIDER, accountId: githubId, createdAt: new Date(), ...values });
-    headers.set('Location', new URL('/workspace/account?linked=1', config.baseURL).toString());
+    headers.set('Location', new URL('/workspace/account?linked=1', publicOrigin).toString());
   } catch {
-    headers.set('Location', new URL('/workspace/account?error=github', config.baseURL).toString());
+    headers.set('Location', new URL('/workspace/account?error=github', publicOrigin).toString());
   }
   return new Response(null, { status: 303, headers });
 }
