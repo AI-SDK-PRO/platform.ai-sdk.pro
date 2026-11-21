@@ -5,6 +5,10 @@ packages:
   - "packages/sdk"
   - "packages/create-webapp"
 
+# Keep npm-compatible "*" workspace ranges linked locally under pnpm 10.
+# Both apps consume @aisdkpro/ui; apps/web also consumes @aisdkpro/client.
+linkWorkspacePackages: true
+
 onlyBuiltDependencies:
   - "@firebase/util"
   - "esbuild"

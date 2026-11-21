@@ -15,6 +15,18 @@ vi.mock("next/dynamic", () => ({
   },
 }));
 
+// Exercise a stale background error, not just the context's empty default.
+vi.mock("../components/FirebaseProvider", () => ({
+  useFirebase: () => ({
+    user: null,
+    authReady: true,
+    busy: false,
+    authError: "เชื่อมบัญชีกับ Workspace ไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง",
+    signInWithGoogle: vi.fn(),
+    signInWithGitHub: vi.fn(),
+  }),
+}));
+
 import AuthLogin from "../components/AuthLogin";
 import { isServerGeminiConfigured } from "./byok-policy";
 import {
