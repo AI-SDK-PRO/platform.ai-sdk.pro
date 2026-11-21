@@ -76,6 +76,30 @@ which is no longer a repository callback. Neon login providers use the callback
 specified by Neon. Repository tokens remain encrypted server-side and are bound
 to the current Neon user. Old Firebase-linked connections are not auto-reused.
 
+## Blocking webhooks stop every sign-up
+
+Managed Better Auth rejects user creation when a configured `user.before_create`
+webhook fails, and the client only sees `WEBHOOK_DELIVERY_FAILED` (HTTP 502).
+That is a Neon project setting, not an app bug: check
+Neon Console → Auth → Configuration → Webhooks. Either disable the webhook or
+point it at this app's endpoint, which verifies the Ed25519 signature against
+`<NEON_AUTH_BASE_URL>/.well-known/jwks.json` and answers `{"allowed": true}`:
+
+`https://<app-host>/api/webhooks/neon-auth`
+
+`send.otp` and `send.magic_link` are also blocking. Subscribing to them replaces
+Neon's built-in email delivery, so only enable them with a handler that actually
+sends the message.
+
+## Login failures must be visible
+
+Neon Auth reports failures as machine codes, either in the JSON body or as
+`?error=<code>` on the redirect back to `/login`. `lib/auth-error-messages.ts`
+maps them to user-facing Thai text; an unmapped code still renders with the raw
+code so a new failure is never silent. GitHub sign-in requests the `user:email`
+scope because GitHub omits the address for accounts with a private email, which
+surfaces as `?error=email_not_found`.
+
 ## Release acceptance checklist
 
 - Run tests, typechecks, production build, and the Vercel container's clean pnpm

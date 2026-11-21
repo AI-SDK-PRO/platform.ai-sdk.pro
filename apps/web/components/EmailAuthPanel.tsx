@@ -3,16 +3,29 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, LoaderCircle, Mail, ShieldCheck } from "lucide-react";
 import { authClient } from "../lib/auth-client";
+import { authErrorCode, describeAuthError } from "../lib/auth-error-messages";
 import { refreshBrowserSession } from "../lib/browser-session";
 import "./native-auth.css";
 
 type Mode = "sign-in" | "sign-up" | "forgot";
 
-function messageForAuthError(_error: unknown): string {
-  return "ไม่สามารถดำเนินการได้ กรุณาตรวจข้อมูล การยืนยันอีเมล และการตั้งค่า Neon Auth แล้วลองใหม่";
+class AuthRequestError extends Error {
+  readonly code: string | null;
+  constructor(error: unknown) {
+    super("Authentication failed.");
+    this.name = "AuthRequestError";
+    this.code = authErrorCode(error);
+  }
+}
+
+function messageForAuthError(error: unknown): string {
+  return (
+    describeAuthError(authErrorCode(error)) ??
+    "ไม่สามารถดำเนินการได้ กรุณาตรวจข้อมูล การยืนยันอีเมล และการตั้งค่า Neon Auth แล้วลองใหม่"
+  );
 }
 function requireSuccess(result: { error: unknown }) {
-  if (result.error) throw new Error("Authentication failed.");
+  if (result.error) throw new AuthRequestError(result.error);
 }
 
 export default function EmailAuthPanel({

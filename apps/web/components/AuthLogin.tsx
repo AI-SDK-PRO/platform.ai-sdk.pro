@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, Github, LoaderCircle } from "lucide-react";
 import EmailAuthPanel from "./EmailAuthPanel";
 import { authClient } from "../lib/auth-client";
+import { authErrorCode, describeAuthError } from "../lib/auth-error-messages";
 import { refreshBrowserSession } from "../lib/browser-session";
 import "./auth-simple.css";
 
@@ -28,10 +29,14 @@ export default function AuthLogin({
       const result = await authClient.signIn.social({
         provider,
         callbackURL: window.location.origin + "/workspace",
+        // GitHub omits the email unless the token carries this scope, which is
+        // what produced the bare /login?error=email_not_found redirect.
+        ...(provider === "github" ? { scopes: ["user:email"] } : {}),
       });
       if (result.error)
         setAuthError(
-          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการใน Neon Auth"
+          describeAuthError(authErrorCode(result.error)) ??
+            "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการใน Neon Auth"
         );
     } catch {
       setAuthError("เชื่อมต่อระบบเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
@@ -44,6 +49,16 @@ export default function AuthLogin({
   useEffect(() => {
     setOauthStarted(false);
   }, [initialMode]);
+
+  // Neon Auth redirects failed OAuth/verification callbacks back here with
+  // ?error=<code>. Read it on the client so the page stays statically renderable.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    const message = describeAuthError(code);
+    if (!message) return;
+    setOauthStarted(true);
+    setAuthError(message);
+  }, []);
 
   useEffect(() => {
     if (!user || !user.emailVerified || !authReady) return;
@@ -75,7 +90,7 @@ export default function AuthLogin({
           <h1 id="login-title">
             {initialMode === "sign-up" ? "Create your account" : "Welcome back"}
           </h1>
-          {oauthStarted && authError && (
+          {authError && (
             <div className="auth-alert" role="alert">
               <AlertCircle size={16} />
               <span>{authError}</span>
