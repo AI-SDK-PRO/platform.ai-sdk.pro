@@ -28,8 +28,6 @@
     "@cloudflare/ai-chat": "0.12.2",
     "@neondatabase/serverless": "1.2.0",
     "@opennextjs/cloudflare": "^1.20.17",
-    "@vercel/blob": "2.9.0",
-    "@vercel/speed-insights": "^2.1.0",
     "agents": "0.33.0",
     "ai": "6.0.326",
     "better-auth": "1.7.19",

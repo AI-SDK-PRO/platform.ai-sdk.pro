@@ -8,7 +8,7 @@ import {
   SITE_DESCRIPTION,
   SITE_ORIGIN,
 } from "../lib/seo-metadata";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+const SpeedInsights = () => null;
 
 const appSans = IBM_Plex_Sans_Thai({
   weight: ["400", "500", "600", "700"],
