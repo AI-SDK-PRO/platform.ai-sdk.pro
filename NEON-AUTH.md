@@ -25,6 +25,10 @@ production and preview app origins as trusted domains; don't broadly trust every
 Vercel customer's preview domain. Configure the session expiry/update policy in
 Neon: the old local three-hour JWT policy no longer controls managed sessions.
 
+The SDK dependency overrides pin Better Auth/core/OAuth to 1.7.12, the managed
+server version documented by Neon, avoiding the newer patch releases' conflicting
+fetch peer. npm/Bun and pnpm both enforce these pins.
+
 The Next.js SDK proxies auth through `/api/auth/*`, with HttpOnly same-origin
 cookies. Workspace middleware completes the Neon OAuth/email-verification token
 exchange; public pages remain available without runtime auth configuration.
