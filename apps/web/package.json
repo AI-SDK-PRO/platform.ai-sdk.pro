@@ -26,12 +26,14 @@
     "@better-auth/core": "1.7.19",
     "@better-auth/drizzle-adapter": "1.7.19",
     "@cloudflare/ai-chat": "0.12.2",
+    "@google/genai": "^3.6.1",
     "@neondatabase/serverless": "1.2.0",
     "@opennextjs/cloudflare": "^1.20.17",
     "agents": "0.33.0",
     "ai": "6.0.326",
     "better-auth": "1.7.19",
     "drizzle-orm": "0.45.4",
+    "firebase": "^13.4.0",
     "flags": "4.4.0",
     "fumadocs-core": "16.18.4",
     "fumadocs-ui": "16.18.4",
@@ -47,12 +49,14 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
+    "@types/node": "^22.0.0",
     "@types/react": "^19.2.1",
     "@types/react-dom": "^19.2.1",
     "drizzle-kit": "0.31.11",
     "postcss": "^8.4.47",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.20.0",
+    "vitest": "^2.1.4",
     "wrangler": "^4.0.0"
   }
 }
