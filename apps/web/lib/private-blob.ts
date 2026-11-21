@@ -1,5 +1,5 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
+import { get, list, put } from "@vercel/blob";
 import {
   acceptableBlobSignature,
   blobUserPrefix,
@@ -7,16 +7,6 @@ import {
   ownedBlobPath,
   privateBlobUploadPath,
 } from "./blob-policy";
-
-// MOCKED — in-memory Map stub replacing @vercel/blob, data lost on container sleep
-interface StoredBlobEntry {
-  pathname: string;
-  data: Uint8Array;
-  mime: string;
-  uploadedAt: Date;
-}
-
-const blobStore = new Map<string, StoredBlobEntry>();
 
 export function privateBlobConfigured(): boolean {
   return Boolean(
@@ -26,21 +16,17 @@ export function privateBlobConfigured(): boolean {
 }
 
 export async function listPrivateBlobs(userId: string) {
-  const prefix = blobUserPrefix(userId);
-  const files = Array.from(blobStore.values())
-    .filter(
-      entry => entry.pathname.startsWith(prefix) && ownedBlobPath(userId, entry.pathname)
-    )
-    .slice(0, 50)
-    .map(entry => ({
-      pathname: entry.pathname,
-      name: entry.pathname.split("/").pop() || "file",
-      size: entry.data.byteLength,
-      uploadedAt: entry.uploadedAt,
-    }));
+  const result = await list({ prefix: blobUserPrefix(userId), limit: 50 });
   return {
-    files,
-    hasMore: false,
+    files: result.blobs
+      .filter(blob => ownedBlobPath(userId, blob.pathname))
+      .map(blob => ({
+        pathname: blob.pathname,
+        name: blob.pathname.split("/").pop() || "file",
+        size: blob.size,
+        uploadedAt: blob.uploadedAt,
+      })),
+    hasMore: result.hasMore,
   };
 }
 
@@ -57,50 +43,25 @@ export async function uploadPrivateBlob(
   ) {
     throw new Error("The file format or size is not allowed.");
   }
-  const basePath = privateBlobUploadPath(userId, filename);
-  const dot = basePath.lastIndexOf(".");
-  const suffix = randomUUID().slice(0, 8);
-  const pathname =
-    dot > basePath.lastIndexOf("/")
-      ? `${basePath.slice(0, dot)}-${suffix}${basePath.slice(dot)}`
-      : `${basePath}-${suffix}`;
 
-  if (!ownedBlobPath(userId, pathname)) {
+  // Persist externally; never retain upload bodies in process-wide state.
+  const blob = await put(
+    privateBlobUploadPath(userId, filename),
+    Buffer.from(data.buffer, data.byteOffset, data.byteLength),
+    { access: "private", contentType: mime, addRandomSuffix: true }
+  );
+  if (!ownedBlobPath(userId, blob.pathname)) {
     throw new Error("The storage response is invalid.");
   }
 
-  blobStore.set(pathname, {
-    pathname,
-    data: Uint8Array.from(data),
-    mime,
-    uploadedAt: new Date(),
-  });
-
   return {
-    pathname,
-    name: pathname.split("/").pop(),
+    pathname: blob.pathname,
+    name: blob.pathname.split("/").pop(),
     size: data.byteLength,
   };
 }
 
 export async function downloadPrivateBlob(userId: string, pathname: string) {
   if (!ownedBlobPath(userId, pathname)) return null;
-  const entry = blobStore.get(pathname);
-  if (!entry) return null;
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(entry.data);
-      controller.close();
-    },
-  });
-  return {
-    statusCode: 200 as const,
-    stream,
-    blob: {
-      pathname: entry.pathname,
-      contentType: entry.mime,
-      size: entry.data.byteLength,
-      uploadedAt: entry.uploadedAt,
-    },
-  };
+  return get(pathname, { access: "private" });
 }
