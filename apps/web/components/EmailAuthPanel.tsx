@@ -8,11 +8,19 @@ import "./native-auth.css";
 
 type Mode = "sign-in" | "sign-up" | "forgot";
 
-function messageForAuthError(_error: unknown): string {
-  return "ไม่สามารถดำเนินการได้ กรุณาตรวจข้อมูล การยืนยันอีเมล และการตั้งค่า Supabase Auth แล้วลองใหม่";
+function messageForAuthError(error: unknown): string {
+  if (!error || typeof error !== "object") return "ดำเนินการกับบัญชีไม่สำเร็จ";
+  const { code, status } = error as { code?: string; status?: number };
+  if (code === "email_not_confirmed") return "กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ";
+  if (code === "invalid_credentials") return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
+  if (code === "signup_disabled") return "ระบบยังไม่เปิดรับสมัครบัญชีใหม่";
+  if (code === "weak_password") return "รหัสผ่านไม่ผ่านข้อกำหนดความปลอดภัย";
+  if (status === 429) return "ส่งคำขอหลายครั้งเกินไป กรุณารอก่อนส่งอีกครั้ง";
+  if (status && status >= 500) return "บริการบัญชีหรือบริการส่งอีเมลไม่พร้อมใช้งาน";
+  return "ดำเนินการกับบัญชีไม่สำเร็จ กรุณาตรวจอีเมลและข้อมูลที่กรอก";
 }
 function requireSuccess(result: { error: unknown }) {
-  if (result.error) throw new Error("Authentication failed.");
+  if (result.error) throw result.error;
 }
 
 export default function EmailAuthPanel({

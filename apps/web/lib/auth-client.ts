@@ -6,7 +6,7 @@ type Session = { user: { emailVerified: boolean } } | null;
 type Email = { email: string };
 type Redirect = { callbackURL?: string; redirectTo?: string };
 type Social = Redirect & { provider: "google" | "github" };
-type Result = { error: { status: number; message: string } | null };
+type Result = { error: { status: number; message: string; code?: string } | null };
 
 async function mutate(path: string, input: object = {}): Promise<Result> {
   const response = await fetch("/api/auth/" + path, {
@@ -17,7 +17,7 @@ async function mutate(path: string, input: object = {}): Promise<Result> {
   });
   const data = await response.json();
   if (!response.ok)
-    return { error: { status: response.status, message: data.error?.message || "Authentication failed." } };
+    return { error: { status: response.status, message: typeof data.error === "string" ? data.error : "Authentication failed.", code: data.code } };
   if (typeof data.url === "string") window.location.assign(data.url);
   return { error: null };
 }

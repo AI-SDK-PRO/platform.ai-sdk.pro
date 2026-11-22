@@ -78,10 +78,21 @@ async function handle(request: Request, context: Context) {
     const email = typeof input.email === "string" ? input.email : "";
     const password = typeof input.password === "string" ? input.password : "";
     const newPassword = typeof input.newPassword === "string" ? input.newPassword : "";
-    const respond = (result: { error: { status?: number; code?: string } | null }) =>
-      result.error
-        ? jsonError("Authentication operation failed.", result.error.code === "email_not_confirmed" ? 403 : result.error.status || 400)
-        : Response.json({ ok: true }, { headers: noStoreHeaders() });
+    const respond = (result: { error: { status?: number; code?: string } | null }) => {
+      if (!result.error) return Response.json({ ok: true }, { headers: noStoreHeaders() });
+      const { code, status = 400 } = result.error;
+      const publicCode =
+        code === "email_not_confirmed" || code === "invalid_credentials" ||
+        code === "otp_expired" || code === "signup_disabled" || code === "weak_password"
+          ? code
+          : code === "provider_disabled" || code === "provider_not_supported"
+            ? "provider_disabled"
+            : status === 429 ? "rate_limited" : status >= 500 ? "service_unavailable" : "auth_failed";
+      return Response.json({ error: "Authentication operation failed.", code: publicCode }, {
+        status: code === "email_not_confirmed" ? 403 : status,
+        headers: noStoreHeaders(),
+      });
+    };
 
     switch (operation) {
       case "sign-up/email":

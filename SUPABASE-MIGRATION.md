@@ -57,3 +57,24 @@
    Supabase writes, pause writes again and reconcile them before restoring the
    old deployment and database target. Existing sessions will require sign-in
    after either cutover or rollback.
+
+## Platform account routes
+
+| Operation | App path |
+| --- | --- |
+| Sign in | `/oauth/consent` |
+| Register by email | `/oauth/consent?mode=register` |
+| Previous entry URLs | `/login` and `/signup` redirect to the corresponding account form |
+| Register / sign in | `POST /api/auth/sign-up/email`, `POST /api/auth/sign-in/email` |
+| Start Google or GitHub sign-in | `POST /api/auth/sign-in/social` |
+| Verify email or complete OAuth | `GET /api/auth/callback` |
+| Resend verification | `POST /api/auth/send-verification-email` |
+| Request / finish password recovery | `POST /api/auth/request-password-reset`, `GET /api/auth/recovery`, `/reset-password`, `POST /api/auth/reset-password` |
+| Read session / sign out | `GET /api/auth/get-session`, `GET /api/platform/session`, `POST /api/auth/sign-out` |
+| Connect GitHub for repository import | `GET /api/connections/github/callback` |
+
+For `https://www.ai-sdk.pro`, the Supabase redirect allowlist uses
+`https://www.ai-sdk.pro/api/auth/callback`,
+`https://www.ai-sdk.pro/api/auth/callback?flow=link`, and
+`https://www.ai-sdk.pro/api/auth/recovery`. The OAuth providers' authorized
+redirect URI is the Supabase project's `/auth/v1/callback`.

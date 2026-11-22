@@ -2,10 +2,17 @@ import type { Metadata } from "next";
 import AuthLogin from "../../../components/AuthLogin";
 
 export const metadata: Metadata = {
-  title: "Create your AI SDK Pro account",
+  title: "AI SDK Pro account",
   robots: { index: false, follow: false },
 };
 
-export default function PlatformConsentPage() {
-  return <AuthLogin initialMode="sign-up" platformRegistration />;
+export default async function PlatformAccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
+  const { mode } = await searchParams;
+  return mode === "register"
+    ? <AuthLogin key="register" initialMode="sign-up" platformRegistration />
+    : <AuthLogin key="signin" />;
 }
