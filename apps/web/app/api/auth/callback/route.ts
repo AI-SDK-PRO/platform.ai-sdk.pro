@@ -1,4 +1,4 @@
-import { getSupabaseAuth } from "@/lib/supabase-auth";
+import { getSupabaseAuth, verifySupabaseEmail } from "@/lib/supabase-auth";
 import { resolvePublicOrigin } from "@/lib/platform-policy";
 import { NextResponse } from "next/server";
 
@@ -19,10 +19,11 @@ export async function GET(request: Request) {
   if (!code && !tokenHash) return failed;
 
   try {
+    if (!code) {
+      return tokenHash && await verifySupabaseEmail(tokenHash) ? redirect("/login") : failed;
+    }
     const auth = await getSupabaseAuth();
-    const { error } = code
-      ? await auth.exchangeCodeForSession(code)
-      : await auth.verifyOtp({ type: "email", token_hash: tokenHash! });
+    const { error } = await auth.exchangeCodeForSession(code);
     if (error) return failed;
     const destination = query.get("flow") === "link" ? "/workspace/account" : "/";
     return redirect(destination);
