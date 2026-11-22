@@ -26,7 +26,7 @@ export type PlatformConfig = {
   baseURL: string;
   baseOrigin: string;
   secret: string;
-  neonDatabaseUrl: string;
+  supabaseDatabaseUrl: string;
   githubClientId: string;
   githubClientSecret: string;
   githubAppSlug: string;
@@ -61,32 +61,20 @@ export function getPlatformConfig(): PlatformConfig {
   const configuredUrl =
     process.env.BETTER_AUTH_URL?.trim() || DEFAULT_PLATFORM_URL;
   const base = validBaseURL(configuredUrl);
-  const databaseUrl =
-    process.env.DATABASE_URL?.trim() ||
-    process.env.NEON_DATABASE_URL?.trim() ||
-    "";
-  const secret =
-    process.env.NEON_AUTH_COOKIE_SECRET?.trim() ||
-    process.env.BETTER_AUTH_SECRET?.trim() ||
-    "";
+  const databaseUrl = process.env.SUPABASE_DB_URL?.trim() || "";
+  const secret = process.env.BETTER_AUTH_SECRET?.trim() || "";
   const missingConfiguration: string[] = [];
-  if (!databaseUrl)
-    missingConfiguration.push("NEON_DATABASE_URL / DATABASE_URL");
-  if (secret.length < 32)
-    missingConfiguration.push("NEON_AUTH_COOKIE_SECRET / BETTER_AUTH_SECRET");
+  if (!databaseUrl) missingConfiguration.push("SUPABASE_DB_URL");
+  if (secret.length < 32) missingConfiguration.push("BETTER_AUTH_SECRET");
   try {
-    const authUrl = new URL(process.env.NEON_AUTH_BASE_URL?.trim() || "");
-    if (
-      authUrl.protocol !== "https:" ||
-      authUrl.username ||
-      authUrl.password ||
-      authUrl.search ||
-      authUrl.hash
-    )
-      throw new Error();
+    const authUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "");
+    if (authUrl.protocol !== "https:" || authUrl.username || authUrl.password ||
+        authUrl.pathname !== "/" || authUrl.search || authUrl.hash) throw new Error();
   } catch {
-    missingConfiguration.push("NEON_AUTH_BASE_URL");
+    missingConfiguration.push("NEXT_PUBLIC_SUPABASE_URL");
   }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim())
+    missingConfiguration.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   if (!base) missingConfiguration.push("BETTER_AUTH_URL");
   const rawAppSlug = process.env.GITHUB_APP_SLUG?.trim() || "ai-sdk-pro";
   const githubAppSlug = rawAppSlug
@@ -111,7 +99,7 @@ export function getPlatformConfig(): PlatformConfig {
     baseURL,
     baseOrigin: baseURL,
     secret,
-    neonDatabaseUrl: databaseUrl,
+    supabaseDatabaseUrl: databaseUrl,
     githubClientId: process.env.GITHUB_CLIENT_ID?.trim() || "",
     githubClientSecret: process.env.GITHUB_CLIENT_SECRET?.trim() || "",
     githubAppSlug,

@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { getNeonSql } from "./db/client";
+import { getPlatformSql } from "./db/client";
 import { PlatformSetupRequiredError } from "./platform-policy";
 export const profileInput = z
   .object({
@@ -16,7 +16,7 @@ export const presetInput = z
   })
   .strict();
 function database() {
-  const sql = getNeonSql();
+  const sql = getPlatformSql();
   if (!sql) throw new PlatformSetupRequiredError();
   return sql;
 }

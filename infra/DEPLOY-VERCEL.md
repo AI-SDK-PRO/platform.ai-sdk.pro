@@ -7,29 +7,15 @@
 | บริการ | หน้าที่ |
 | --- | --- |
 | **Vercel Hobby** | โฮสต์ Next.js (`apps/web` + `apps/docs` ผ่าน [`vercel.json`](../vercel.json)) |
-| **Neon Free** | Postgres สำหรับ Workspace / GitHub token / session mapping |
-| **Firebase Spark** | ล็อกอิน Google + Email/Password + Firestore ส่วนตัวผู้ใช้ |
+| **Supabase** | Postgres สำหรับ Workspace และ Auth สำหรับ Google, GitHub และอีเมล |
 
-ล็อกอินหลักเป็น **Firebase** (ไม่ใช้ไฟล์ Firebase Admin SDK บนเซิร์ฟเวอร์)  
-GitHub ใช้ **OAuth App แยก** สำหรับเชื่อม Repository หลังล็อกอินแล้ว
+ล็อกอินผ่าน Supabase Auth ส่วนการนำเข้ารีโปใช้ GitHub OAuth App แยก
 
 ---
 
-## 1. เตรียม Neon และ migration
+## 1. เตรียม Supabase และ migration
 
-1. สร้างโปรเจกต์ที่ [neon.tech](https://neon.tech) (Free tier)
-2. คัดลอก connection string → ตั้งเป็น `NEON_DATABASE_URL` (เก็บเป็น secret บน Vercel เท่านั้น)
-3. บนเครื่องพัฒนาหรือ CI ที่มี secret:
-
-   ```bash
-   pnpm install
-   export NEON_DATABASE_URL='postgresql://...'
-   pnpm --filter @aisdkpro/web platform:migrate
-   ```
-
-   สคริปต์รัน migration ตามลำดับ: `0001_platform.sql`, `0006_platform_tokens.sql`, `0007_deployment_intake.sql`, `0008_preview_dispatch.sql`
-
----
+ตั้งฐานข้อมูลและผู้ให้บริการล็อกอินตาม [คู่มือ Supabase](../SUPABASE-MIGRATION.md)
 
 ## 2. Import repository ใน Vercel
 
@@ -53,14 +39,16 @@ GitHub ใช้ **OAuth App แยก** สำหรับเชื่อม Re
 
 | ตัวแปร | คำอธิบาย |
 | --- | --- |
-| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` (อย่างน้อย 32 byte) — ใช้ลงชื่อ session cookie และเข้ารหัส GitHub token |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` (อย่างน้อย 32 byte) — ใช้ลงชื่อและเข้ารหัสข้อมูลการเชื่อม GitHub ของแพลตฟอร์ม |
 | `BETTER_AUTH_URL` | URL production เช่น `https://your-project.vercel.app` (ต้องตรงกับโดเมนที่เปิดใช้) |
-| `NEON_DATABASE_URL` | Connection string จาก Neon |
+| `SUPABASE_DB_URL` | Supabase Postgres connection string ฝั่งเซิร์ฟเวอร์ |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL ของ Supabase project |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key ของโปรเจ็กต์เดียวกัน |
 | `APP_ORIGINS` | Origin ที่อนุญาต CORS/chat เช่น `https://your-project.vercel.app` (คั่นด้วย comma ถ้ามีหลายโดเมน) |
 | `TRUST_PROXY` | `true` บน Vercel — เปิด rate limit ต่อ client IP จาก `x-forwarded-for` |
 | `BYOK_ONLY` | `true` สำหรับ production (public chat ใช้คีย์ผู้เยี่ยมเท่านั้น) |
 
-### GitHub (เชื่อม Repository หลังล็อกอิน Firebase)
+### GitHub (เชื่อม Repository หลังล็อกอินแพลตฟอร์ม)
 
 | ตัวแปร | คำอธิบาย |
 | --- | --- |
@@ -69,17 +57,7 @@ GitHub ใช้ **OAuth App แยก** สำหรับเชื่อม Re
 | `GITHUB_APP_SLUG` | ทางเลือก ชื่อ GitHub App สำหรับติดตั้ง repo (default `ai-sdk-pro`) |
 
 สร้าง OAuth App: GitHub → **Settings → Developer settings → OAuth Apps**  
-**Authorization callback URL:** `https://<โดเมนจริง>/api/auth/callback/github`
-
-> การล็อกอินเข้า Workspace ใช้ **Google/Email ผ่าน Firebase** ไม่ใช่ GitHub OAuth โดยตรง GitHub ใช้เชื่อมที่ `/workspace/account` เท่านั้น
-
-### Build-time (ฟอร์มอีเมลบนหน้า login)
-
-| ตัวแปร | คำอธิบาย |
-| --- | --- |
-| `NEXT_PUBLIC_FIREBASE_EMAIL_AUTH_ENABLED` | `true` ถ้าต้องการสมัคร/เข้าด้วยอีเมลบน `/login` (ต้องตั้งก่อน build บน Vercel) |
-
-คอนฟิก Firebase client มาจาก [`firebase-applet-config.json`](../firebase-applet-config.json) ใน repo แล้ว — ไม่ต้อง duplicate `apiKey` ลง env
+**Authorization callback URL:** `https://<โดเมนจริง>/api/connections/github/callback`
 
 ### ทางเลือก
 
@@ -89,40 +67,16 @@ GitHub ใช้ **OAuth App แยก** สำหรับเชื่อม Re
 | `NEXT_PUBLIC_CF_AGENT_URL` / `AGENT_AUTH_SECRET` | แชท keyless ผ่าน Cloudflare Agent Worker |
 | `BLOB_READ_WRITE_TOKEN` | อัปโหลดไฟล์ผ่าน Vercel Blob (private store) |
 
-ตัวแปร `RESEND_*` / `PLATFORM_EMAIL_AUTH_ENABLED` ใน `.env.example` เป็น legacy ของ Better Auth email — production ใช้ Firebase Email แทน
+## 4. Supabase Auth
 
----
-
-## 4. Firebase Console
-
-โปรเจกต์: `gen-lang-client-0257543355` (ดู [`firebase-applet-config.json`](../firebase-applet-config.json))
-
-1. [Authentication → Sign-in method](https://console.firebase.google.com/project/gen-lang-client-0257543355/authentication/providers)
-   - เปิด **Google**
-   - เปิด **Email/Password** (ถ้าใช้สมัครด้วยอีเมล)
-2. [Authentication → Settings → Authorized domains](https://console.firebase.google.com/project/gen-lang-client-0257543355/authentication/settings)
-   - เพิ่ม `<your-project>.vercel.app`
-   - เพิ่ม custom domain เมื่อพร้อม
-3. **Firestore rules:** deploy จาก repo
-
-   ```bash
-   npm i -g firebase-tools
-   firebase login
-   firebase deploy --only firestore:rules --project gen-lang-client-0257543355
-   ```
-
-   ใช้ไฟล์ [`firestore.rules`](../firestore.rules)
-
-4. **อย่า** commit หรือใส่ Firebase Admin SDK JSON ใน Vercel env — เซิร์ฟเวอร์ verify `idToken` ผ่าน JWKS ของ Google อยู่แล้ว
-
----
+ตั้ง provider, callback ของ OAuth และเทมเพลตอีเมลตาม [คู่มือ Supabase](../SUPABASE-MIGRATION.md)
 
 ## 5. Custom domain (ทางเลือก)
 
 1. Vercel → Project → **Domains** → เพิ่มโดเมน
 2. อัปเดต `BETTER_AUTH_URL` และ `APP_ORIGINS` ให้ตรงกับโดเมนใหม่ แล้ว Redeploy
 3. อัปเดต GitHub OAuth callback URL
-4. เพิ่มโดเมนใน Firebase Authorized domains
+4. เพิ่ม callback ของโดเมนใน Supabase Redirect URLs
 
 ---
 
@@ -169,10 +123,10 @@ curl -fsS -o /dev/null -w "%{http_code}\n" "<origin>/login"
 
 ## สรุปลำดับงาน
 
-1. Neon + `platform:migrate`
+1. Supabase + `platform:migrate`
 2. Vercel import repo
 3. ใส่ secrets บน Vercel
-4. Firebase authorized domains + providers
+4. Supabase redirect URLs + providers
 5. GitHub OAuth App + callback
 6. Deploy → smoke tests
 7. (ทางเลือก) custom domain + Cloudflare user-deploy เฟส 2

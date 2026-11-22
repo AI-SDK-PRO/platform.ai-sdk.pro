@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { LazyStreamdown } from "./LazyStreamdown";
 import { BrandMark } from "@aisdkpro/ui";
+import { refreshBrowserSession } from "../lib/browser-session";
 import { APP_VERSION } from "../lib/version";
 import ProviderSettings from "./ProviderSettings";
 import SiteHeader from "./SiteHeader";
@@ -308,7 +309,13 @@ export default function LLMChat({
   }
 
   async function send(text: string) {
-    if (!text.trim() || busy || !canSend) return;
+    if (!text.trim() || busy) return;
+    const session = await refreshBrowserSession({ reason: "login-check" }).catch(() => null);
+    if (!session?.signedIn) {
+      window.location.assign("/login");
+      return;
+    }
+    if (!canSend) return;
     clearError();
     setInput("");
     await sendMessage({ text: text.trim() });

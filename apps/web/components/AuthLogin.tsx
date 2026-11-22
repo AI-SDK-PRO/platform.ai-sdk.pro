@@ -27,11 +27,11 @@ export default function AuthLogin({
     try {
       const result = await authClient.signIn.social({
         provider,
-        callbackURL: window.location.origin + "/workspace",
+        callbackURL: window.location.origin + "/",
       });
       if (result.error)
         setAuthError(
-          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการใน Neon Auth"
+          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการใน Supabase Auth"
         );
     } catch {
       setAuthError("เชื่อมต่อระบบเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
@@ -42,7 +42,14 @@ export default function AuthLogin({
 
   // Restoring a session is not an explicit login attempt (see PR #13).
   useEffect(() => {
-    setOauthStarted(false);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth_error") === "1") {
+      setOauthStarted(true);
+      setAuthError("เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
+      window.history.replaceState({}, "", window.location.pathname);
+    } else {
+      setOauthStarted(false);
+    }
   }, [initialMode]);
 
   useEffect(() => {
@@ -50,7 +57,7 @@ export default function AuthLogin({
     let active = true;
     void refreshBrowserSession({ reason: "login-check" })
       .then(session => {
-        if (active && session.signedIn) router.replace("/workspace");
+        if (active && session.signedIn) router.replace("/");
       })
       .catch(() => {});
     return () => {

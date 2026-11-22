@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { neon } from "@neondatabase/serverless";
+import { getPlatformSql } from "@/lib/db/client";
 import { requireSessionUser } from "@/lib/auth";
 import {
   checkPlatformRateLimit,
@@ -18,9 +18,9 @@ type Context = { params: Promise<{ id: string }> };
 const STATUS_SET = new Set(["pending", "dispatching", "submitted", "rejected", "uncertain"]);
 
 function sqlClient() {
-  const databaseUrl = process.env.NEON_DATABASE_URL;
-  if (!databaseUrl) throw new Error("Platform database is unavailable.");
-  return neon(databaseUrl);
+  const sql = getPlatformSql();
+  if (!sql) throw new Error("Platform database is unavailable.");
+  return sql;
 }
 
 export async function GET(request: Request, context: Context): Promise<Response> {

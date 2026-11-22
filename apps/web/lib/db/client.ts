@@ -1,30 +1,22 @@
 import "server-only";
 
-import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
-import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
-
+import postgres from "postgres";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { dbSchema } from "./schema";
 
-export type PlatformDatabase = NeonHttpDatabase<typeof dbSchema>;
-export type PlatformSql = NeonQueryFunction<false, false>;
+export type PlatformDatabase = PostgresJsDatabase<typeof dbSchema>;
+export type PlatformSql = ReturnType<typeof postgres>;
 
 let sqlClient: PlatformSql | null = null;
 let databaseClient: PlatformDatabase | null = null;
 let databaseUrlForClient: string | null = null;
 
-export function getNeonDatabaseUrl(): string | null {
-  const value =
-    process.env.DATABASE_URL?.trim() || process.env.NEON_DATABASE_URL?.trim();
-  return value ? value : null;
-}
-
-export function getNeonSql(): PlatformSql | null {
-  const url = getNeonDatabaseUrl();
+export function getPlatformSql(): PlatformSql | null {
+  const url = process.env.SUPABASE_DB_URL?.trim();
   if (!url) return null;
   if (!sqlClient || databaseUrlForClient !== url) {
-    // Authentication must fail closed if persistence cannot be initialized.
-    // A fake successful write would issue sessions for users never saved to Neon.
-    sqlClient = neon(url);
+    if (sqlClient) void sqlClient.end({ timeout: 5 }).catch(() => {});
+    sqlClient = postgres(url, { prepare: false, max: 3, idle_timeout: 20, ssl: "verify-full" });
     databaseUrlForClient = url;
     databaseClient = null;
   }
@@ -32,16 +24,15 @@ export function getNeonSql(): PlatformSql | null {
 }
 
 export function getPlatformDb(): PlatformDatabase | null {
-  const sql = getNeonSql();
+  const sql = getPlatformSql();
   if (!sql) return null;
-  if (!databaseClient) {
-    databaseClient = drizzle(sql, { schema: dbSchema, logger: false });
-  }
-  return databaseClient;
+  return databaseClient ??= drizzle(sql, { schema: dbSchema });
 }
 
-export function resetDatabaseClientsForTests(): void {
+export async function resetDatabaseClientsForTests(): Promise<void> {
+  const previous = sqlClient;
   sqlClient = null;
   databaseClient = null;
   databaseUrlForClient = null;
+  if (previous) await previous.end({ timeout: 0 });
 }

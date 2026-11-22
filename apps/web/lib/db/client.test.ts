@@ -1,47 +1,47 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-const { neon, drizzle } = vi.hoisted(() => ({
-  neon: vi.fn(),
+const { postgres, drizzle } = vi.hoisted(() => ({
+  postgres: vi.fn(),
   drizzle: vi.fn(),
 }));
-vi.mock("@neondatabase/serverless", () => ({ neon }));
-vi.mock("drizzle-orm/neon-http", () => ({ drizzle }));
+vi.mock("postgres", () => ({ default: postgres }));
+vi.mock("drizzle-orm/postgres-js", () => ({ drizzle }));
 
 import { getPlatformDb, resetDatabaseClientsForTests } from "./client";
 
-beforeEach(() => {
+beforeEach(async () => {
+  await resetDatabaseClientsForTests();
   vi.resetAllMocks();
-  resetDatabaseClientsForTests();
   vi.stubEnv(
-    "NEON_DATABASE_URL",
+    "SUPABASE_DB_URL",
     "postgres://fixture:fixture@localhost/fixture"
   );
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(async () => { await resetDatabaseClientsForTests(); vi.unstubAllEnvs(); });
 
 describe("authentication database persistence", () => {
-  it("accepts the standard Vercel Neon integration DATABASE_URL", () => {
-    vi.stubEnv("NEON_DATABASE_URL", "");
+  it("uses the dedicated Supabase connection string", () => {
     vi.stubEnv(
-      "DATABASE_URL",
+      "SUPABASE_DB_URL",
       "postgres://fixture:fixture@localhost/integration"
     );
-    neon.mockReturnValue(() => []);
+    postgres.mockReturnValue({ end: vi.fn().mockResolvedValue(undefined) });
     drizzle.mockReturnValue({ select: vi.fn() });
     expect(getPlatformDb()).not.toBeNull();
-    expect(neon).toHaveBeenCalledWith(
-      "postgres://fixture:fixture@localhost/integration"
+    expect(postgres).toHaveBeenCalledWith(
+      "postgres://fixture:fixture@localhost/integration",
+      expect.objectContaining({ prepare: false })
     );
   });
   it("returns no database when it is not configured", () => {
-    vi.stubEnv("NEON_DATABASE_URL", "");
+    vi.stubEnv("SUPABASE_DB_URL", "");
     expect(getPlatformDb()).toBeNull();
-    expect(neon).not.toHaveBeenCalled();
+    expect(postgres).not.toHaveBeenCalled();
   });
 
   it("propagates an invalid connection configuration instead of faking writes", () => {
-    neon.mockImplementation(() => {
+    postgres.mockImplementation(() => {
       throw new Error("Invalid connection");
     });
     expect(() => getPlatformDb()).toThrow("Invalid connection");
@@ -49,7 +49,7 @@ describe("authentication database persistence", () => {
   });
 
   it("does not replace a failed database adapter with a mock", () => {
-    neon.mockReturnValue(() => []);
+    postgres.mockReturnValue({ end: vi.fn().mockResolvedValue(undefined) });
     drizzle.mockImplementation(() => {
       throw new Error("Invalid adapter");
     });
@@ -58,11 +58,11 @@ describe("authentication database persistence", () => {
 
   it("keeps a failed configuration change from reusing the previous database", () => {
     const database = { select: vi.fn() };
-    neon.mockReturnValue(() => []);
+    postgres.mockReturnValue({ end: vi.fn().mockResolvedValue(undefined) });
     drizzle.mockReturnValue(database);
     expect(getPlatformDb()).toBe(database);
-    vi.stubEnv("NEON_DATABASE_URL", "invalid");
-    neon.mockImplementation(() => {
+    vi.stubEnv("SUPABASE_DB_URL", "invalid");
+    postgres.mockImplementation(() => {
       throw new Error("Invalid connection");
     });
     expect(() => getPlatformDb()).toThrow("Invalid connection");

@@ -61,7 +61,7 @@ export default function WorkspaceAbout() {
       })
       .catch(() => {
         if (active)
-          setError("อ่านโปรไฟล์จาก Neon ไม่สำเร็จ กรุณาตรวจ migration");
+          setError("อ่านโปรไฟล์จาก Supabase ไม่สำเร็จ กรุณาตรวจ migration");
       });
     return () => {
       active = false;
@@ -82,7 +82,7 @@ export default function WorkspaceAbout() {
         body: JSON.stringify({ displayName, aboutMe }),
       });
       if (!response.ok) throw new Error("Could not save profile.");
-      setNotice("บันทึกโปรไฟล์ใน Neon แล้ว — แสดงเฉพาะใน Workspace ของคุณ");
+      setNotice("บันทึกโปรไฟล์ใน Supabase แล้ว — แสดงเฉพาะใน Workspace ของคุณ");
     } catch {
       setError("บันทึกโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่");
     } finally {
@@ -117,7 +117,7 @@ export default function WorkspaceAbout() {
         </span>
         <h1>โปรไฟล์ในพื้นที่แพลตฟอร์ม</h1>
         <p>
-          เก็บชื่อที่แสดงและข้อความแนะนำตัวสั้น ๆ ใน Neon Postgres
+          เก็บชื่อที่แสดงและข้อความแนะนำตัวสั้น ๆ ใน Supabase Postgres
           ส่วนตัวของคุณเท่านั้น ไม่มีการเผยแพร่สาธารณะ และห้ามใส่ API key
           หรือรหัสผ่าน
         </p>

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/auth", () => ({ requireSessionUser: mocks.requireSessionUser }));
 vi.mock("@/lib/repository-queries", () => ({ getOwnedRepository: mocks.getOwnedRepository }));
-vi.mock("@neondatabase/serverless", () => ({ neon: () => mocks.sql }));
+vi.mock("@/lib/db/client", () => ({ getPlatformSql: () => mocks.sql }));
 vi.mock("@/lib/platform-policy", () => ({
   checkPlatformRateLimit: () => true,
   getPlatformConfig: () => ({ configured: true }),
@@ -35,7 +35,7 @@ const postReq = () => new Request("https://ai-sdk.pro/api/repositories/repo-1/pr
 afterEach(() => vi.unstubAllEnvs());
 
 beforeEach(() => {
-  vi.stubEnv("NEON_DATABASE_URL", "postgres://fixture.invalid/test");
+  vi.stubEnv("SUPABASE_DB_URL", "postgres://fixture.invalid/test");
   vi.clearAllMocks();
   mocks.requireSessionUser.mockResolvedValue({ id: "user-A" });
   mocks.getOwnedRepository.mockResolvedValue(repo);

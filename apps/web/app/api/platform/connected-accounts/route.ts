@@ -1,5 +1,6 @@
+import { getSupabaseAuth } from "@/lib/supabase-auth";
 import { eq } from "drizzle-orm";
-import { getAuth, requireSessionUser } from "@/lib/auth";
+import { requireSessionUser } from "@/lib/auth";
 import { getPlatformDb } from "@/lib/db/client";
 import { account } from "@/lib/db/schema";
 import {
@@ -18,16 +19,16 @@ export async function GET(request: Request) {
       .select({ providerId: account.providerId })
       .from(account)
       .where(eq(account.userId, user.id));
-    const { data: methods, error } = await getAuth().listAccounts();
+    const { data: methods, error } = await (await getSupabaseAuth()).getUserIdentities();
     if (error) return jsonError("Sign-in methods are unavailable.", 502);
     return Response.json(
       {
         github: linked.some(row => row.providerId === "github-repository"),
-        googleLogin: methods?.some(row => row.providerId === "google") ?? false,
-        githubLogin: methods?.some(row => row.providerId === "github") ?? false,
+        googleLogin: methods?.identities.some(row => row.provider === "google") ?? false,
+        githubLogin: methods?.identities.some(row => row.provider === "github") ?? false,
         password:
-          methods?.some(row => row.providerId === "credential") ?? false,
-        authProvider: "neon",
+          methods?.identities.some(row => row.provider === "email") ?? false,
+        authProvider: "supabase",
         emailVerified: true,
         email: user.email,
       },

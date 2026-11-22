@@ -1,4 +1,3 @@
-vi.mock("@/lib/neon-auth", () => ({ getAuth: vi.fn() }));
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -10,7 +9,7 @@ describe("auth endpoint allowlist", () => {
     expect(isAllowedAuthEndpoint("POST", "sign-up/email")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "sign-in/email")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "send-verification-email")).toBe(true);
-    expect(isAllowedAuthEndpoint("GET", "verify-email")).toBe(true);
+    expect(isAllowedAuthEndpoint("GET", "verify-email")).toBe(false);
     expect(isAllowedAuthEndpoint("POST", "request-password-reset")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "reset-password")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "link-social")).toBe(true);
@@ -20,7 +19,7 @@ describe("auth endpoint allowlist", () => {
     expect(isAllowedAuthEndpoint("POST", "sign-out")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "get-access-token")).toBe(false);
 
-    expect(isAllowedAuthEndpoint("GET", "list-accounts")).toBe(true);
+    expect(isAllowedAuthEndpoint("GET", "list-accounts")).toBe(false);
   });
 
   it.each([

@@ -1,4 +1,3 @@
-vi.mock("@/lib/neon-auth", () => ({ getAuth: vi.fn() }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -13,18 +12,18 @@ const mocks = vi.hoisted(() => ({
   getOwnedRepositoryFile: vi.fn(),
   buildRepositorySnapshot: vi.fn(),
   persistRepositorySnapshot: vi.fn(),
-  authHandlerGet: vi.fn(),
-  authHandlerPost: vi.fn(),
+  signInWithPassword: vi.fn(),
+  signOut: vi.fn(),
   createAssistantAgent: vi.fn(),
   createAgentUIStreamResponse: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/supabase-auth", () => ({ getSupabaseAuth: mocks.getAuth }));
 vi.mock("@/lib/auth", async importOriginal => {
   const actual = await importOriginal<typeof import("@/lib/auth")>();
   return {
     ...actual,
-    getAuth: mocks.getAuth,
     getManagedSession: mocks.getSession,
     getGitHubAccessToken: mocks.getGitHubAccessToken,
     requireSessionUser: mocks.requireSessionUser,
@@ -102,10 +101,11 @@ function authContext(...path: string[]) {
 }
 
 beforeEach(() => {
-  vi.stubEnv("NEON_AUTH_BASE_URL", "https://auth.example.neon.tech/auth");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://fixture.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "fixture");
   vi.stubEnv("BETTER_AUTH_URL", "https://ai-sdk.pro");
   vi.stubEnv(
-    "NEON_DATABASE_URL",
+    "SUPABASE_DB_URL",
     "postgres://fixture:fixture@127.0.0.1/fixture"
   );
   vi.stubEnv("BETTER_AUTH_SECRET", "synthetic-test-secret-not-used-for-auth");
@@ -119,11 +119,12 @@ beforeEach(() => {
   for (const mock of Object.values(mocks)) mock.mockReset();
   resetPlatformRateLimitsForTests();
 
-  mocks.getAuth.mockReturnValue({
-    handler: () => ({ GET: mocks.authHandlerGet, POST: mocks.authHandlerPost }),
+  mocks.getAuth.mockResolvedValue({
+    signInWithPassword: mocks.signInWithPassword,
+    signOut: mocks.signOut,
   });
-  mocks.authHandlerGet.mockResolvedValue(new Response("synthetic-auth-get"));
-  mocks.authHandlerPost.mockResolvedValue(new Response("synthetic-auth-post"));
+  mocks.signInWithPassword.mockResolvedValue({ error: null });
+  mocks.signOut.mockResolvedValue({ error: null });
   mocks.getSession.mockResolvedValue(null);
   mocks.completeGitHubConnection.mockResolvedValue(
     new Response("synthetic-github-callback", { status: 200 })
@@ -212,7 +213,7 @@ describe("chat route security boundary", () => {
   });
 });
 
-describe("Neon auth route boundary", () => {
+describe("Supabase auth route boundary", () => {
   it("does not expose provider access-token APIs", async () => {
     const response = await postAuthEndpoint(
       requestWithJson("https://ai-sdk.pro/api/auth/get-access-token", {}),
@@ -221,7 +222,7 @@ describe("Neon auth route boundary", () => {
     expect(response.status).toBe(404);
     expect(mocks.getAuth).not.toHaveBeenCalled();
   });
-  it("rejects cross-site sign-in before calling Neon", async () => {
+  it("rejects cross-site sign-in before calling Supabase", async () => {
     const response = await postAuthEndpoint(
       requestWithJson(
         "https://ai-sdk.pro/api/auth/sign-in/email",
@@ -233,7 +234,7 @@ describe("Neon auth route boundary", () => {
     expect(response.status).toBe(403);
     expect(mocks.getAuth).not.toHaveBeenCalled();
   });
-  it("dispatches trusted login to the same-origin Neon proxy", async () => {
+  it("dispatches trusted login to the same-origin Supabase Auth route", async () => {
     const response = await postAuthEndpoint(
       requestWithJson("https://ai-sdk.pro/api/auth/sign-in/email", {
         email: "user@example.com",
@@ -242,8 +243,8 @@ describe("Neon auth route boundary", () => {
       authContext("sign-in", "email")
     );
     expect(response.status).toBe(200);
-    expect(mocks.authHandlerPost).toHaveBeenCalledWith(expect.any(Request), {
-      params: expect.any(Promise),
+    expect(mocks.signInWithPassword).toHaveBeenCalledWith({
+      email: "user@example.com", password: "test-only",
     });
   });
   it("rejects hostile callback URLs and oversized auth bodies before proxying", async () => {
@@ -268,7 +269,7 @@ describe("Neon auth route boundary", () => {
       authContext("sign-out")
     );
     expect(response.status).toBe(200);
-    expect(mocks.authHandlerPost).toHaveBeenCalled();
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
   it("enforces registration password bounds on the server, not only in the form", async () => {
     const response = await postAuthEndpoint(
@@ -280,9 +281,9 @@ describe("Neon auth route boundary", () => {
       authContext("sign-up", "email")
     );
     expect(response.status).toBe(400);
-    expect(mocks.authHandlerPost).not.toHaveBeenCalled();
+    expect(mocks.getAuth).not.toHaveBeenCalled();
   });
-  it("does not intercept Neon GitHub sign-in with repository OAuth", async () => {
+  it("does not intercept Supabase GitHub sign-in with repository OAuth", async () => {
     const { GET } = await import("./auth/[...all]/route");
     const response = await GET(
       new Request("https://ai-sdk.pro/api/auth/callback/github"),

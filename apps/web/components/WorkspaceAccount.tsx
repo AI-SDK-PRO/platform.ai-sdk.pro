@@ -12,7 +12,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import WorkspaceChrome from "./WorkspaceChrome";
-import NeonSyncPanel from "./NeonSyncPanel";
+import WorkspacePresets from "./WorkspacePresets";
 import { authClient } from "../lib/auth-client";
 import type { PlatformSession, PlatformStatus } from "../lib/platform-types";
 
@@ -56,7 +56,7 @@ export default function WorkspaceAccount() {
       });
       if (result.error) throw new Error("Link failed.");
     } catch {
-      setError("เพิ่มวิธีเข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการตั้งค่า Neon Auth");
+      setError("เพิ่มวิธีเข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการตั้งค่า Supabase Auth");
     } finally {
       setBusy(false);
     }
@@ -71,7 +71,7 @@ export default function WorkspaceAccount() {
         redirectTo: window.location.origin + "/reset-password",
       });
       if (result.error) throw new Error("Request failed.");
-      setNotice("กรุณาตรวจอีเมลเพื่อตั้งรหัสผ่านของบัญชี Neon");
+      setNotice("กรุณาตรวจอีเมลเพื่อตั้งรหัสผ่านของบัญชี Supabase");
     } catch {
       setError("ส่งลิงก์ตั้งรหัสผ่านไม่สำเร็จ");
     } finally {
@@ -108,9 +108,9 @@ export default function WorkspaceAccount() {
     setBusy(true);
     setError("");
     setNotice("");
-    // GitHub App repository authorization is separate from Neon GitHub Login.
+    // GitHub App repository authorization is separate from Supabase GitHub Login.
     // This endpoint binds the OAuth token to the currently authenticated
-    // Neon workspace user and validates its signed OAuth state.
+    // Supabase workspace user and validates its signed OAuth state.
     window.location.assign("/api/connections/github");
   }
 
@@ -138,7 +138,7 @@ export default function WorkspaceAccount() {
         <span className="workspace-account-kicker">WORKSPACE / ACCOUNT</span>
         <h1>บัญชีและการเชื่อมต่อ</h1>
         <p>
-          Neon Auth เป็นบัญชีหลักของคุณ ส่วน GitHub ใช้เชื่อม Repository และ
+          Supabase Auth เป็นบัญชีหลักของคุณ ส่วน GitHub ใช้เชื่อม Repository และ
           Deploy ภายในบัญชีเดียวกัน
         </p>
         {phase === "loading" && (
@@ -225,8 +225,8 @@ export default function WorkspaceAccount() {
                 ส่งอีเมลตั้ง / รีเซ็ตรหัสผ่าน
               </button>
               <p className="workspace-account-help">
-                เพิ่มวิธีเข้าสู่ระบบจากหน้านี้เพื่อให้ทุกวิธีใช้ Neon User ID
-                และ Workspace เดียวกัน การเชื่อมวิธีเข้าสู่ระบบจัดการโดย Neon
+                เพิ่มวิธีเข้าสู่ระบบจากหน้านี้เพื่อให้ทุกวิธีใช้ Supabase User ID
+                และ Workspace เดียวกัน การเชื่อมวิธีเข้าสู่ระบบจัดการโดย Supabase
                 Auth ไม่ได้ใช้บัญชี Firebase เดิม
               </p>
               {!settings.emailVerified && (
@@ -287,7 +287,7 @@ export default function WorkspaceAccount() {
             </div>
           </>
         )}
-        {phase === "ready" && <NeonSyncPanel />}
+        {phase === "ready" && <WorkspacePresets />}
       </section>
     </WorkspaceChrome>
   );

@@ -1,11 +1,11 @@
 import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { getNeonSql } from "./db/client";
+import { getPlatformSql } from "./db/client";
 import { PlatformSetupRequiredError } from "./platform-policy";
 
 export function tokenDatabase() {
-  const sql = getNeonSql();
+  const sql = getPlatformSql();
   if (!sql) throw new PlatformSetupRequiredError("Token storage is unavailable.");
   return sql;
 }
