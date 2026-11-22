@@ -43,6 +43,16 @@ describe("Auth login and signup initial clean-session regression", () => {
     expect(html).not.toContain("auth-alert");
   });
 
+  it("offers first-party email registration on the platform consent page", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AuthLogin, { initialMode: "sign-up", platformRegistration: true })
+    );
+    expect(html).toContain("Create your AI SDK Pro account");
+    expect(html).toContain("Verify your email");
+    expect(html).not.toContain("Continue with Google");
+    expect(html).not.toContain("Continue with GitHub");
+  });
+
   it("renders /signup without any error banner before the user submits the form", () => {
     const html = renderToStaticMarkup(
       React.createElement(AuthLogin, { initialMode: "sign-up" })

@@ -1,4 +1,4 @@
-import { getNeonSql } from "@/lib/db/client";
+import { getPlatformSql } from "@/lib/db/client";
 import { classifyDeploymentEvent, readWebhookPayload, verifyDeploymentSignature, WebhookPayloadTooLarge } from "@/lib/deployment-events";
 import { randomUUID } from "node:crypto";
 import { readPilotDeploymentIdentity } from "@/lib/pilot-deployment-oidc";
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 }
 
 async function enqueue(delivery: string, event: NonNullable<ReturnType<typeof classifyDeploymentEvent>>) {
-  const sql = getNeonSql();
+  const sql = getPlatformSql();
   if (!sql) return jsonError("Deployment storage is unavailable.", 503);
   try {
     const result = await sql`

@@ -1,5 +1,7 @@
 import "server-only";
-import { getAuth } from "./neon-auth";
+import { getSupabaseAuth } from "./supabase-auth";
+import { eq } from "drizzle-orm";
+import { authIdentity } from "./db/schema";
 import { getPlatformDb } from "./db/client";
 import { user } from "./db/schema";
 import {
@@ -7,7 +9,7 @@ import {
   PlatformSetupRequiredError,
 } from "./platform-policy";
 import { readConnectedGitHubToken } from "./github-connection";
-export { getAuth } from "./neon-auth";
+
 
 const AUTH_ENDPOINTS = new Set([
   "POST sign-up/email",
@@ -16,14 +18,9 @@ const AUTH_ENDPOINTS = new Set([
   "POST sign-out",
   "GET get-session",
   "POST send-verification-email",
-  "GET verify-email",
   "POST request-password-reset",
-  "GET reset-password",
   "POST reset-password",
-  "POST update-user",
-  "POST change-password",
   "POST link-social",
-  "GET list-accounts",
 ]);
 export function isAllowedAuthEndpoint(method: string, path: string): boolean {
   return AUTH_ENDPOINTS.has(`${method} ${path}`);
@@ -36,26 +33,43 @@ export class GitHubConnectionRequiredError extends Error {
   }
 }
 export async function getManagedSession() {
-  // Validate against Neon rather than accepting the former Firebase JWT or
-  // a cached client identity. Revoked sessions must not authorize API writes.
-  const { data, error } = await getAuth().getSession({
-    // @neon/auth 0.8.2 compares this query value to the STRING "true"
-    // before serializing the request, although Better Auth types it boolean.
-    query: { disableCookieCache: "true" as unknown as boolean },
-  });
-  if (error)
+  const auth = await getSupabaseAuth();
+  const { data, error } = await auth.getUser();
+  if (error) {
+    if (error.name === "AuthSessionMissingError" || error.status === 401 || error.status === 403)
+      return null;
     throw new PlatformSetupRequiredError("Authentication service unavailable.");
-  return data;
+  }
+  const current = data.user;
+  if (!current?.email || !current.email_confirmed_at) return null;
+  const { data: state } = await auth.getSession();
+  const expiresAt = state.session?.expires_at;
+  if (!expiresAt) return null;
+  const metadata = current.user_metadata;
+  return {
+    user: {
+      id: current.id,
+      name: typeof metadata.name === "string" ? metadata.name : current.email,
+      email: current.email,
+      emailVerified: true,
+      image: typeof metadata.avatar_url === "string" ? metadata.avatar_url : null,
+    },
+    session: { expiresAt: expiresAt * 1000 },
+  };
 }
+
 export async function getSessionUser(_request: Request) {
   const session = await getManagedSession();
   if (!session?.user || session.user.emailVerified !== true) return null;
-  const identity = session.user;
+
   const db = getPlatformDb();
   if (!db) throw new PlatformSetupRequiredError();
+  const [mapped] = await db.select({ userId: authIdentity.userId }).from(authIdentity)
+    .where(eq(authIdentity.supabaseId, session.user.id));
+  const identity = { ...session.user, id: mapped?.userId ?? session.user.id };
   const now = new Date();
   // Keep existing app foreign keys without managing passwords or auth sessions
-  // ourselves. Identity is keyed only by Neon's verified ID, never by email.
+  // ourselves. Identity is keyed only by a verified Supabase ID or an explicit migration mapping, never by email.
   await db
     .insert(user)
     .values({

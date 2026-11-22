@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ sql: vi.fn(), requireUser: vi.fn() }));
 vi.mock("server-only", () => ({}));
-vi.mock("./db/client", () => ({ getNeonSql: () => mocks.sql }));
+vi.mock("./db/client", () => ({ getPlatformSql: () => mocks.sql }));
 vi.mock("@/lib/auth", () => ({ requireSessionUser: mocks.requireUser }));
 import {
   deletePreset,
@@ -46,7 +46,7 @@ function request(
     body: JSON.stringify(body),
   });
 }
-describe("Neon workspace persistence", () => {
+describe("Supabase workspace persistence", () => {
   it("binds reads and deletes to the authenticated owner as SQL parameters", async () => {
     await readProfile("user-a");
     await listPresets("user-b");

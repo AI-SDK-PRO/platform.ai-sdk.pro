@@ -10,8 +10,10 @@ import "./auth-simple.css";
 
 export default function AuthLogin({
   initialMode = "sign-in",
+  platformRegistration = false,
 }: {
   initialMode?: "sign-in" | "sign-up";
+  platformRegistration?: boolean;
 }) {
   const router = useRouter();
   const [oauthStarted, setOauthStarted] = useState(false);
@@ -27,11 +29,11 @@ export default function AuthLogin({
     try {
       const result = await authClient.signIn.social({
         provider,
-        callbackURL: window.location.origin + "/workspace",
+        callbackURL: window.location.origin + "/",
       });
       if (result.error)
         setAuthError(
-          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการใน Neon Auth"
+          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการใน Supabase Auth"
         );
     } catch {
       setAuthError("เชื่อมต่อระบบเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
@@ -42,7 +44,14 @@ export default function AuthLogin({
 
   // Restoring a session is not an explicit login attempt (see PR #13).
   useEffect(() => {
-    setOauthStarted(false);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth_error") === "1") {
+      setOauthStarted(true);
+      setAuthError("เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
+      window.history.replaceState({}, "", window.location.pathname);
+    } else {
+      setOauthStarted(false);
+    }
   }, [initialMode]);
 
   useEffect(() => {
@@ -50,7 +59,7 @@ export default function AuthLogin({
     let active = true;
     void refreshBrowserSession({ reason: "login-check" })
       .then(session => {
-        if (active && session.signedIn) router.replace("/workspace");
+        if (active && session.signedIn) router.replace("/");
       })
       .catch(() => {});
     return () => {
@@ -73,7 +82,7 @@ export default function AuthLogin({
             ai-sdk<span>.pro</span>
           </Link>
           <h1 id="login-title">
-            {initialMode === "sign-up" ? "Create your account" : "Welcome back"}
+            {platformRegistration ? "Create your AI SDK Pro account" : initialMode === "sign-up" ? "Create your account" : "Welcome back"}
           </h1>
           {oauthStarted && authError && (
             <div className="auth-alert" role="alert">
@@ -81,43 +90,52 @@ export default function AuthLogin({
               <span>{authError}</span>
             </div>
           )}
-          <div className="simple-auth-providers">
-            <button
-              type="button"
-              className="auth-github-button"
-              disabled={!authReady || busy}
-              onClick={() => {
-                void social("google");
-              }}
-            >
-              {busy ? (
-                <LoaderCircle className="auth-spin" size={18} />
-              ) : (
-                <span aria-hidden="true" className="simple-google-mark">
-                  G
-                </span>
-              )}
-              <span>Continue with Google</span>
-            </button>
-            <button
-              type="button"
-              className="auth-github-button"
-              disabled={!authReady || busy}
-              onClick={() => {
-                void social("github");
-              }}
-            >
-              {busy ? (
-                <LoaderCircle className="auth-spin" size={18} />
-              ) : (
-                <Github size={20} aria-hidden="true" />
-              )}
-              <span>Continue with GitHub</span>
-            </button>
-          </div>
-          <div className="simple-auth-divider" role="separator">
-            <span>OR</span>
-          </div>
+          {platformRegistration ? (
+            <p>
+              Your name and email identify your AI SDK Pro account and Workspace.
+              Verify your email before signing in.
+            </p>
+          ) : (
+            <>
+              <div className="simple-auth-providers">
+                <button
+                  type="button"
+                  className="auth-github-button"
+                  disabled={!authReady || busy}
+                  onClick={() => {
+                    void social("google");
+                  }}
+                >
+                  {busy ? (
+                    <LoaderCircle className="auth-spin" size={18} />
+                  ) : (
+                    <span aria-hidden="true" className="simple-google-mark">
+                      G
+                    </span>
+                  )}
+                  <span>Continue with Google</span>
+                </button>
+                <button
+                  type="button"
+                  className="auth-github-button"
+                  disabled={!authReady || busy}
+                  onClick={() => {
+                    void social("github");
+                  }}
+                >
+                  {busy ? (
+                    <LoaderCircle className="auth-spin" size={18} />
+                  ) : (
+                    <Github size={20} aria-hidden="true" />
+                  )}
+                  <span>Continue with GitHub</span>
+                </button>
+              </div>
+              <div className="simple-auth-divider" role="separator">
+                <span>OR</span>
+              </div>
+            </>
+          )}
           <EmailAuthPanel enabled initialMode={initialMode} />
           {!authReady && (
             <p className="auth-status" role="status">
@@ -131,7 +149,7 @@ export default function AuthLogin({
               </>
             ) : (
               <>
-                New to ai-sdk.pro? <Link href="/signup">Create an account</Link>
+                New to ai-sdk.pro? <Link href="/oauth/consent">Create an account</Link>
               </>
             )}
           </p>

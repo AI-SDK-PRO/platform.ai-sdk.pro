@@ -7,7 +7,7 @@ type Preset = {
   prompt: string;
   providerPreference: string;
 };
-export default function NeonSyncPanel() {
+export default function WorkspacePresets() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -20,11 +20,11 @@ export default function NeonSyncPanel() {
       cache: "no-store",
     });
     if (!response.ok)
-      throw new Error("อ่าน preset จาก Neon ไม่สำเร็จ กรุณาตรวจ migration");
+      throw new Error("อ่าน preset จาก Supabase ไม่สำเร็จ กรุณาตรวจ migration");
     setPresets((await response.json()).presets);
   }
   useEffect(() => {
-    void load().catch(() => setError("อ่าน preset จาก Neon ไม่สำเร็จ"));
+    void load().catch(() => setError("อ่าน preset จาก Supabase ไม่สำเร็จ"));
   }, []);
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -66,8 +66,8 @@ export default function NeonSyncPanel() {
   }
   return (
     <section className="workspace-account-card">
-      <h2>Private presets · Neon</h2>
-      <p>บันทึก prompt ส่วนตัวใน Neon Postgres ไม่ควรใส่รหัสผ่านหรือ API key</p>
+      <h2>Private presets · Supabase</h2>
+      <p>บันทึก prompt ส่วนตัวใน Supabase Postgres ไม่ควรใส่รหัสผ่านหรือ API key</p>
       {error && <p role="alert">{error}</p>}
       <form className="workspace-account-form" onSubmit={save}>
         <label htmlFor="preset-title">Preset title</label>
@@ -101,7 +101,7 @@ export default function NeonSyncPanel() {
           className="workspace-button workspace-button-primary"
           disabled={busy}
         >
-          Save preset to Neon
+          Save preset to Supabase
         </button>
       </form>
       {presets.map(item => (

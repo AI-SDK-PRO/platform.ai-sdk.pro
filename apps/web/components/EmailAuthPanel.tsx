@@ -9,7 +9,7 @@ import "./native-auth.css";
 type Mode = "sign-in" | "sign-up" | "forgot";
 
 function messageForAuthError(_error: unknown): string {
-  return "ไม่สามารถดำเนินการได้ กรุณาตรวจข้อมูล การยืนยันอีเมล และการตั้งค่า Neon Auth แล้วลองใหม่";
+  return "ไม่สามารถดำเนินการได้ กรุณาตรวจข้อมูล การยืนยันอีเมล และการตั้งค่า Supabase Auth แล้วลองใหม่";
 }
 function requireSuccess(result: { error: unknown }) {
   if (result.error) throw new Error("Authentication failed.");
@@ -74,22 +74,12 @@ export default function EmailAuthPanel({
             email: normalizedEmail,
             password,
             name: name.trim(),
-            callbackURL: window.location.origin + "/workspace",
+            callbackURL: window.location.origin + "/",
           })
         );
         setPassword("");
         setConfirmPassword("");
         setVerificationPending(normalizedEmail);
-        const verification = await authClient.sendVerificationEmail({
-          email: normalizedEmail,
-          callbackURL: window.location.origin + "/workspace",
-        });
-        if (verification.error) {
-          setError(
-            "สร้างบัญชีแล้ว แต่ยังส่งอีเมลยืนยันไม่สำเร็จ กรุณากดส่งอีกครั้ง"
-          );
-          return;
-        }
         setMessage(
           "สร้างบัญชีแล้ว กรุณาเปิดอีเมลยืนยัน จากนั้นเข้าสู่ระบบเพื่อเข้า Workspace"
         );
@@ -119,7 +109,7 @@ export default function EmailAuthPanel({
       const session = await refreshBrowserSession({ reason: "login-check" });
       if (!session.signedIn)
         throw new Error("Workspace session was not established.");
-      window.location.assign("/workspace");
+      window.location.assign("/");
     } catch (caught) {
       setError(messageForAuthError(caught));
     } finally {
@@ -137,7 +127,7 @@ export default function EmailAuthPanel({
       requireSuccess(
         await authClient.sendVerificationEmail({
           email: verificationPending,
-          callbackURL: window.location.origin + "/workspace",
+          callbackURL: window.location.origin + "/",
         })
       );
       setMessage("ส่งอีเมลยืนยันอีกครั้งแล้ว กรุณาตรวจ Inbox และ Spam");
@@ -162,7 +152,7 @@ export default function EmailAuthPanel({
         return;
       }
       setVerificationPending(null);
-      window.location.assign("/workspace");
+      window.location.assign("/");
     } catch (caught) {
       setError(messageForAuthError(caught));
     } finally {

@@ -442,7 +442,7 @@ export default function RepositoryWorkspace() {
           title="Workspace setup is pending"
           description={
             requestError ||
-            "GitHub App or Neon configuration is not ready. No repository request was attempted."
+            "GitHub App or Supabase configuration is not ready. No repository request was attempted."
           }
           action={
             <div className="workspace-setup-details">

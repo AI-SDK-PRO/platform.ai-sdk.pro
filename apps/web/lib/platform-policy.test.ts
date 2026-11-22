@@ -13,7 +13,7 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("platform configuration", () => {
   it("reports setup-required variables without opening a database", () => {
-    vi.stubEnv("NEON_DATABASE_URL", "");
+    vi.stubEnv("SUPABASE_DB_URL", "");
     vi.stubEnv("BETTER_AUTH_SECRET", "");
     vi.stubEnv("GITHUB_CLIENT_ID", "");
     vi.stubEnv("GITHUB_CLIENT_SECRET", "");
@@ -21,9 +21,9 @@ describe("platform configuration", () => {
     expect(getPlatformConfig().configured).toBe(false);
     expect(platformStatus().missingConfiguration).toEqual(
       expect.arrayContaining([
-        "NEON_DATABASE_URL / DATABASE_URL",
-        "NEON_AUTH_COOKIE_SECRET / BETTER_AUTH_SECRET",
-        "NEON_AUTH_BASE_URL",
+        "SUPABASE_DB_URL",
+        "BETTER_AUTH_SECRET",
+        "NEXT_PUBLIC_SUPABASE_URL",
       ])
     );
     expect(platformStatus().githubConfigured).toBe(false);
@@ -36,20 +36,22 @@ describe("platform configuration", () => {
     );
   });
 
-  it("enables Neon email registration when platform config is ready unless explicitly disabled", () => {
-    vi.stubEnv("NEON_DATABASE_URL", "postgres://unit-test");
+  it("enables Supabase email registration when platform config is ready unless explicitly disabled", () => {
+    vi.stubEnv("SUPABASE_DB_URL", "postgres://unit-test");
     vi.stubEnv("BETTER_AUTH_SECRET", "test-only-secret-0123456789abcdef0123");
-    vi.stubEnv("NEON_AUTH_BASE_URL", "https://auth.example.neon.tech/auth");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://fixture.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "fixture");
     vi.stubEnv("GITHUB_CLIENT_ID", "");
     vi.stubEnv("GITHUB_CLIENT_SECRET", "");
     expect(getPlatformConfig().configured).toBe(true);
     expect(getPlatformConfig().githubConfigured).toBe(false);
     expect(getPlatformConfig().emailRegistrationAvailable).toBe(true);
 
-    vi.stubEnv("NEON_AUTH_BASE_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
     expect(getPlatformConfig().emailRegistrationAvailable).toBe(false);
 
-    vi.stubEnv("NEON_AUTH_BASE_URL", "https://auth.example.neon.tech/auth");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://fixture.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "fixture");
     vi.stubEnv("PLATFORM_EMAIL_AUTH_ENABLED", "false");
     expect(getPlatformConfig().emailRegistrationAvailable).toBe(false);
   });

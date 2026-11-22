@@ -1,10 +1,13 @@
+import { getSupabaseAuth } from "@/lib/supabase-auth";
 import { readWorkspaceJson } from "@/lib/request-json";
-import { getAuth, isAllowedAuthEndpoint } from "@/lib/auth";
+import { getManagedSession, isAllowedAuthEndpoint } from "@/lib/auth";
 import {
   isTrustedMutationOrigin,
   jsonError,
   safePlatformError,
   trustedPlatformOrigins,
+  resolvePublicOrigin,
+  noStoreHeaders,
 } from "@/lib/platform-policy";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,8 +19,8 @@ async function handle(request: Request, context: Context) {
   if (request.method !== "GET" && !isTrustedMutationOrigin(request))
     return jsonError("Invalid request origin.", 403);
   try {
+    let input: Record<string, unknown> = {};
     if (request.method === "POST") {
-      let input: Record<string, unknown>;
       try {
         const body =
           !request.body && path.join("/") === "sign-out"
@@ -40,13 +43,11 @@ async function handle(request: Request, context: Context) {
         const password =
           operation === "sign-up/email"
             ? input.password
-            : ["reset-password", "change-password"].includes(operation)
+            : operation === "reset-password"
               ? input.newPassword
               : undefined;
         if (
-          ["sign-up/email", "reset-password", "change-password"].includes(
-            operation
-          ) &&
+          ["sign-up/email", "reset-password"].includes(operation) &&
           (typeof password !== "string" ||
             password.length < 12 ||
             password.length > 128)
@@ -66,18 +67,68 @@ async function handle(request: Request, context: Context) {
       } catch {
         return jsonError("Invalid authentication request or redirect.", 400);
       }
-      const headers = new Headers(request.headers);
-      headers.delete("content-length");
-      request = new Request(request.url, {
-        method: request.method,
-        headers,
-        body: JSON.stringify(input),
-      });
     }
-    const handler = getAuth().handler();
-    return await handler[request.method as "GET" | "POST"](request, {
-      params: Promise.resolve({ path }),
-    });
+    const operation = path.join("/");
+    if (operation === "get-session")
+      return Response.json(await getManagedSession(), { headers: noStoreHeaders() });
+
+    const auth = await getSupabaseAuth();
+    const origin = resolvePublicOrigin(request);
+    const callback = new URL("/api/auth/callback", origin);
+    const email = typeof input.email === "string" ? input.email : "";
+    const password = typeof input.password === "string" ? input.password : "";
+    const newPassword = typeof input.newPassword === "string" ? input.newPassword : "";
+    const respond = (result: { error: { status?: number; code?: string } | null }) =>
+      result.error
+        ? jsonError("Authentication operation failed.", result.error.code === "email_not_confirmed" ? 403 : result.error.status || 400)
+        : Response.json({ ok: true }, { headers: noStoreHeaders() });
+
+    switch (operation) {
+      case "sign-up/email":
+        return respond(await auth.signUp({
+          email, password,
+          options: { data: { name: input.name }, emailRedirectTo: callback.href },
+        }));
+      case "sign-in/email":
+        return respond(await auth.signInWithPassword({ email, password }));
+      case "sign-in/social":
+      case "link-social": {
+        if (input.provider !== "github" && input.provider !== "google")
+          return jsonError("Unsupported provider.", 400);
+        if (operation === "link-social") callback.searchParams.set("flow", "link");
+        const options = { redirectTo: callback.href, skipBrowserRedirect: true };
+        const result = operation === "link-social"
+          ? await auth.linkIdentity({ provider: input.provider, options })
+          : await auth.signInWithOAuth({ provider: input.provider, options });
+        if (result.error || !result.data.url) return respond(result.error ? result : { error: { status: 502 } });
+        return Response.json({ url: result.data.url }, { headers: noStoreHeaders() });
+      }
+      case "sign-out":
+        return respond(await auth.signOut({ scope: "local" }));
+      case "send-verification-email":
+        return respond(await auth.resend({ type: "signup", email, options: { emailRedirectTo: callback.href } }));
+      case "request-password-reset": {
+        const result = await auth.resetPasswordForEmail(email, {
+          redirectTo: new URL("/api/auth/recovery", origin).href,
+        });
+        if (result.error && (result.error.status === 429 || (result.error.status ?? 0) >= 500))
+          return respond(result);
+        return Response.json({ ok: true }, { headers: noStoreHeaders() });
+      }
+      case "reset-password": {
+        if (typeof input.token !== "string" || !input.token)
+          return jsonError("Invalid recovery token.", 400);
+        const recovery = await auth.verifyOtp({ type: "recovery", token_hash: input.token });
+        if (recovery.error) return respond(recovery);
+        try {
+          return respond(await auth.updateUser({ password: newPassword }));
+        } finally {
+          await auth.signOut({ scope: "local" });
+        }
+      }
+      default:
+        return jsonError("Unsupported authentication operation.", 404);
+    }
   } catch (error) {
     const safe = safePlatformError(error);
     return jsonError(safe.message, safe.status);
