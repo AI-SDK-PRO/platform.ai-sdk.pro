@@ -10,8 +10,10 @@ import "./auth-simple.css";
 
 export default function AuthLogin({
   initialMode = "sign-in",
+  platformRegistration = false,
 }: {
   initialMode?: "sign-in" | "sign-up";
+  platformRegistration?: boolean;
 }) {
   const router = useRouter();
   const [oauthStarted, setOauthStarted] = useState(false);
@@ -80,7 +82,7 @@ export default function AuthLogin({
             ai-sdk<span>.pro</span>
           </Link>
           <h1 id="login-title">
-            {initialMode === "sign-up" ? "Create your account" : "Welcome back"}
+            {platformRegistration ? "Create your AI SDK Pro account" : initialMode === "sign-up" ? "Create your account" : "Welcome back"}
           </h1>
           {oauthStarted && authError && (
             <div className="auth-alert" role="alert">
@@ -88,43 +90,52 @@ export default function AuthLogin({
               <span>{authError}</span>
             </div>
           )}
-          <div className="simple-auth-providers">
-            <button
-              type="button"
-              className="auth-github-button"
-              disabled={!authReady || busy}
-              onClick={() => {
-                void social("google");
-              }}
-            >
-              {busy ? (
-                <LoaderCircle className="auth-spin" size={18} />
-              ) : (
-                <span aria-hidden="true" className="simple-google-mark">
-                  G
-                </span>
-              )}
-              <span>Continue with Google</span>
-            </button>
-            <button
-              type="button"
-              className="auth-github-button"
-              disabled={!authReady || busy}
-              onClick={() => {
-                void social("github");
-              }}
-            >
-              {busy ? (
-                <LoaderCircle className="auth-spin" size={18} />
-              ) : (
-                <Github size={20} aria-hidden="true" />
-              )}
-              <span>Continue with GitHub</span>
-            </button>
-          </div>
-          <div className="simple-auth-divider" role="separator">
-            <span>OR</span>
-          </div>
+          {platformRegistration ? (
+            <p>
+              Your name and email identify your AI SDK Pro account and Workspace.
+              Verify your email before signing in.
+            </p>
+          ) : (
+            <>
+              <div className="simple-auth-providers">
+                <button
+                  type="button"
+                  className="auth-github-button"
+                  disabled={!authReady || busy}
+                  onClick={() => {
+                    void social("google");
+                  }}
+                >
+                  {busy ? (
+                    <LoaderCircle className="auth-spin" size={18} />
+                  ) : (
+                    <span aria-hidden="true" className="simple-google-mark">
+                      G
+                    </span>
+                  )}
+                  <span>Continue with Google</span>
+                </button>
+                <button
+                  type="button"
+                  className="auth-github-button"
+                  disabled={!authReady || busy}
+                  onClick={() => {
+                    void social("github");
+                  }}
+                >
+                  {busy ? (
+                    <LoaderCircle className="auth-spin" size={18} />
+                  ) : (
+                    <Github size={20} aria-hidden="true" />
+                  )}
+                  <span>Continue with GitHub</span>
+                </button>
+              </div>
+              <div className="simple-auth-divider" role="separator">
+                <span>OR</span>
+              </div>
+            </>
+          )}
           <EmailAuthPanel enabled initialMode={initialMode} />
           {!authReady && (
             <p className="auth-status" role="status">
@@ -138,7 +149,7 @@ export default function AuthLogin({
               </>
             ) : (
               <>
-                New to ai-sdk.pro? <Link href="/signup">Create an account</Link>
+                New to ai-sdk.pro? <Link href="/oauth/consent">Create an account</Link>
               </>
             )}
           </p>
