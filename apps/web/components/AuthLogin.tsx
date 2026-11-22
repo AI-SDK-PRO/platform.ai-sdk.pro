@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { SIGN_IN_PATH, SIGN_UP_PATH } from "../lib/auth-paths";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Github, LoaderCircle } from "lucide-react";
@@ -22,6 +23,7 @@ export default function AuthLogin({
   const authReady = !isPending;
   const [busy, setBusy] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
   async function social(provider: "google" | "github") {
     setOauthStarted(true);
     setBusy(true);
@@ -31,12 +33,16 @@ export default function AuthLogin({
         provider,
         callbackURL: window.location.origin + "/",
       });
-      if (result.error)
-        setAuthError(
-          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการใน Supabase Auth"
-        );
+      if (result.error) {
+        const label = provider === "google" ? "Google" : "GitHub";
+        setAuthError(result.error.status === 503
+          ? "ระบบบัญชีของแพลตฟอร์มยังไม่พร้อมใช้งาน"
+          : result.error.code === "provider_disabled"
+            ? "ระบบยังไม่ได้เปิดการเข้าสู่ระบบผ่าน " + label
+            : "เริ่มเข้าสู่ระบบผ่าน " + label + " ไม่สำเร็จ ใช้อีเมลและรหัสผ่านได้");
+      }
     } catch {
-      setAuthError("เชื่อมต่อระบบเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
+      setAuthError("ติดต่อบริการเข้าสู่ระบบของแพลตฟอร์มไม่ได้");
     } finally {
       setBusy(false);
     }
@@ -45,12 +51,19 @@ export default function AuthLogin({
   // Restoring a session is not an explicit login attempt (see PR #13).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("auth_error") === "1") {
+    const error = params.get("auth_error");
+    setEmailConfirmed(params.get("email_confirmed") === "1");
+    if (error === "email_link_invalid" || error === "oauth_failed") {
       setOauthStarted(true);
-      setAuthError("เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
-      window.history.replaceState({}, "", window.location.pathname);
-    } else {
-      setOauthStarted(false);
+      setAuthError(error === "email_link_invalid"
+        ? "ลิงก์ยืนยันอีเมลหมดอายุหรือถูกใช้แล้ว ขอส่งลิงก์ใหม่จากฟอร์มเข้าสู่ระบบ"
+        : "ยืนยันการเข้าสู่ระบบจากผู้ให้บริการไม่ได้ กรุณาเริ่มจากหน้านี้");
+    }
+    if (error || params.has("email_confirmed")) {
+      params.delete("auth_error");
+      params.delete("email_confirmed");
+      const query = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (query ? "?" + query : ""));
     }
   }, [initialMode]);
 
@@ -90,6 +103,7 @@ export default function AuthLogin({
               <span>{authError}</span>
             </div>
           )}
+          {emailConfirmed && <p role="status">ยืนยันอีเมลแล้ว เข้าสู่ระบบด้วยอีเมลและรหัสผ่านของคุณได้เลย</p>}
           {platformRegistration ? (
             <p>
               Your name and email identify your AI SDK Pro account and Workspace.
@@ -145,11 +159,11 @@ export default function AuthLogin({
           <p className="simple-auth-footer">
             {initialMode === "sign-up" ? (
               <>
-                Already have an account? <Link href="/login">Log in</Link>
+                Already have an account? <Link href={SIGN_IN_PATH}>Log in</Link>
               </>
             ) : (
               <>
-                New to ai-sdk.pro? <Link href="/oauth/consent">Create an account</Link>
+                New to ai-sdk.pro? <Link href={SIGN_UP_PATH}>Create an account</Link>
               </>
             )}
           </p>

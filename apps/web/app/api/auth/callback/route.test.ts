@@ -19,7 +19,7 @@ beforeEach(() => {
 it("confirms an email without establishing a browser session", async () => {
   mocks.verifySupabaseEmail.mockResolvedValue(true);
   const response = await GET(new Request("https://platform.ai-sdk.pro/api/auth/callback?token_hash=test"));
-  expect(response.headers.get("location")).toBe("https://platform.ai-sdk.pro/login");
+  expect(response.headers.get("location")).toBe("https://platform.ai-sdk.pro/oauth/consent?email_confirmed=1");
   expect(mocks.verifySupabaseEmail).toHaveBeenCalledWith("test");
   expect(mocks.getSupabaseAuth).not.toHaveBeenCalled();
   expect(response.headers.has("set-cookie")).toBe(false);
@@ -31,4 +31,13 @@ it("uses the browser-bound code exchange for OAuth", async () => {
   expect(response.headers.get("location")).toBe("https://platform.ai-sdk.pro/");
   expect(mocks.exchangeCodeForSession).toHaveBeenCalledWith("test");
   expect(mocks.verifySupabaseEmail).not.toHaveBeenCalled();
+});
+
+it("returns an invalid email link to the new sign-in page with email-specific feedback", async () => {
+  mocks.verifySupabaseEmail.mockResolvedValue(false);
+  const response = await GET(new Request("https://platform.ai-sdk.pro/api/auth/callback?token_hash=test"));
+  expect(response.headers.get("location")).toBe(
+    "https://platform.ai-sdk.pro/oauth/consent?auth_error=email_link_invalid"
+  );
+  expect(response.headers.has("set-cookie")).toBe(false);
 });
