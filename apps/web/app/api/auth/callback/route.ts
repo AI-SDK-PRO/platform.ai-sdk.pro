@@ -25,7 +25,12 @@ export async function GET(request: Request) {
     const auth = await getSupabaseAuth();
     const { error } = await auth.exchangeCodeForSession(code);
     if (error) return failed;
-    const destination = query.get("flow") === "link" ? "/workspace/account" : "/";
+    const rawNext = query.get("next");
+    const safeNext =
+      rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
+        ? rawNext
+        : "/";
+    const destination = query.get("flow") === "link" ? "/workspace/account" : safeNext;
     return redirect(destination);
   } catch {
     return failed;

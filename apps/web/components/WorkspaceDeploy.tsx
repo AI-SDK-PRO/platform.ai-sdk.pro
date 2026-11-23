@@ -2,15 +2,22 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, Cloud, GitBranch, Github, LoaderCircle, RefreshCw, Rocket, ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight, Cloud, GitBranch, Github, Globe, LoaderCircle, RefreshCw, Rocket, ShieldCheck, Terminal } from "lucide-react";
 import { authClient } from "../lib/auth-client";
 import type { GitHubRepository, GitHubRepositoryList, PlatformSession, PlatformStatus } from "../lib/platform-types";
-import type { DeploymentEntry, DeploymentProject, ProjectList } from "../lib/deploy-bridge";
+import type { DeploymentEntry, ProjectList, WebhookLogEntry } from "../lib/deploy-bridge";
+import DeploymentLogsModal from "./DeploymentLogsModal";
 import WorkspaceChrome from "./WorkspaceChrome";
 
 type Phase = "loading" | "signed-out" | "setup" | "ready" | "error";
 type State = ProjectList | null;
+type DeploymentPollPayload = {
+  deployments: DeploymentEntry[];
+  webhookLogs?: WebhookLogEntry[];
+  webhookVerificationActive?: boolean;
+  checkedAt?: string;
+};
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -55,6 +62,15 @@ export default function WorkspaceDeploy() {
   const [outputDir, setOutputDir] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
   const [history, setHistory] = useState<DeploymentEntry[]>([]);
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLogEntry[]>([]);
+  const [webhookVerificationActive, setWebhookVerificationActive] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
+  const [logsModalOpen, setLogsModalOpen] = useState(false);
+  const [focusedDeploymentId, setFocusedDeploymentId] = useState<string | null>(null);
+  const [autoPolling, setAutoPolling] = useState(true);
+  const [logsPolling, setLogsPolling] = useState(false);
+  const [logsPollError, setLogsPollError] = useState("");
+  const pollInFlightRef = useRef(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -103,12 +119,57 @@ export default function WorkspaceDeploy() {
     }
     void load();
     return () => controller.abort();
-  }, [version]);
+  }, [version, hintedRepo]);
 
   const repo = useMemo(() => repositories.find(r => r.fullName === selectedRepo), [repositories, selectedRepo]);
   const project = useMemo(() => backend?.projects.find(p => p.id === selectedProject), [backend, selectedProject]);
   const canDeploy = Boolean(backend?.routingReady && project &&
     (backend.frameworkBuilds || project.framework === "static"));
+
+  const fetchDeploymentsSnapshot = useCallback(
+    async (id: string, signal?: AbortSignal) => {
+      if (!id || pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
+      setLogsPolling(true);
+      try {
+        const result = await requestJson<DeploymentPollPayload>(
+          "/api/deploy/projects/" + encodeURIComponent(id) + "/deployments",
+          { signal }
+        );
+        if (signal?.aborted) return;
+        setHistory(result.deployments);
+        setWebhookLogs(result.webhookLogs ?? []);
+        setWebhookVerificationActive(Boolean(result.webhookVerificationActive));
+        setLastCheckedAt(result.checkedAt ?? new Date().toISOString());
+        setLogsPollError("");
+      } catch (caught) {
+        if (signal?.aborted) return;
+        const message = caught instanceof Error ? caught.message : "Could not load deployments.";
+        setLogsPollError(message);
+        if (/HTTP (?:401|403|404)/.test(message)) {
+          setAutoPolling(false);
+        }
+        throw caught;
+      } finally {
+        pollInFlightRef.current = false;
+        setLogsPolling(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!logsModalOpen || !project || !autoPolling) return;
+    const controller = new AbortController();
+    void fetchDeploymentsSnapshot(project.id, controller.signal).catch(() => undefined);
+    const intervalId = window.setInterval(() => {
+      void fetchDeploymentsSnapshot(project.id, controller.signal).catch(() => undefined);
+    }, 3000);
+    return () => {
+      controller.abort();
+      window.clearInterval(intervalId);
+    };
+  }, [logsModalOpen, project, autoPolling, fetchDeploymentsSnapshot]);
 
   async function importProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,23 +194,36 @@ export default function WorkspaceDeploy() {
   }
 
   async function selectProject(id: string) {
-    setSelectedProject(id); setHistory([]); setError("");
+    setSelectedProject(id);
+    setHistory([]);
+    setWebhookLogs([]);
+    setLastCheckedAt(null);
+    setLogsPollError("");
+    setError("");
     if (!id) return;
     try {
-      const result = await requestJson<{deployments:DeploymentEntry[]}>(
-        "/api/deploy/projects/" + encodeURIComponent(id) + "/deployments");
-      setHistory(result.deployments);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not load deployments."); }
+      await fetchDeploymentsSnapshot(id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load deployments.");
+    }
+  }
+
+  function openLogsModal(deploymentId: string | null = null) {
+    setFocusedDeploymentId(deploymentId);
+    setAutoPolling(true);
+    setLogsPollError("");
+    setLogsModalOpen(true);
   }
 
   async function deploy() {
     if (!project || !canDeploy || busy) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await requestJson<{queued:boolean}>(
+      const result = await requestJson<{queued:boolean;deploymentId?:string|null}>(
         "/api/deploy/projects/" + encodeURIComponent(project.id) + "/deployments", { method: "POST" });
       setNotice(result.queued ? "Deployment was queued. Check live history for the result." : "This commit has already been queued.");
       await selectProject(project.id);
+      if (result.queued) openLogsModal(result.deploymentId ?? null);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Deploy could not be queued."); }
     finally { setBusy(false); }
   }
@@ -169,10 +243,15 @@ export default function WorkspaceDeploy() {
             <h1>Deploy โปรเจกต์</h1>
             <p>GitHub → Import → Build → Preview → Publish ผ่านบัญชีเดียวกับ ai-sdk.pro</p>
           </div>
-          <button type="button" className="workspace-button workspace-button-secondary"
-            onClick={() => setVersion(x => x + 1)}>
-            <RefreshCw size={15} /> Refresh
-          </button>
+          <div className="unified-deploy-actions">
+            <Link href="/workspace/regions" className="workspace-button workspace-button-secondary">
+              <Globe size={15} /> Regions Map
+            </Link>
+            <button type="button" className="workspace-button workspace-button-secondary"
+              onClick={() => setVersion(x => x + 1)}>
+              <RefreshCw size={15} /> Refresh
+            </button>
+          </div>
         </div>
         {phase === "loading" && <p role="status"><LoaderCircle size={16} className="workspace-spin" /> กำลังตรวจสอบ Session และ Deploy Backend…</p>}
         {phase === "signed-out" && <div className="unified-deploy-notice"><h2>เข้าสู่ระบบก่อนใช้งาน</h2>
@@ -239,10 +318,16 @@ export default function WorkspaceDeploy() {
               {project && <div className="unified-deploy-project-details">
                 <h3>{project.name}</h3>
                 <p>Branch: <code>{project.branch}</code> · Framework: {project.framework}</p>
-                <button type="button" className="workspace-button workspace-button-primary"
-                  onClick={() => { void deploy(); }} disabled={!canDeploy || busy}>
-                  <Rocket size={14} /> {busy ? "Processing…" : "Deploy selected branch"}
-                </button>
+                <div className="unified-deploy-actions">
+                  <button type="button" className="workspace-button workspace-button-primary"
+                    onClick={() => { void deploy(); }} disabled={!canDeploy || busy}>
+                    <Rocket size={14} /> {busy ? "Processing…" : "Deploy selected branch"}
+                  </button>
+                  <button type="button" className="workspace-button workspace-button-secondary"
+                    onClick={() => openLogsModal(null)}>
+                    <Terminal size={14} /> Deployment Logs
+                  </button>
+                </div>
                 {!backend?.routingReady && <p className="unified-deploy-warning">ยังไม่เปิด DNS/Workers routing ของโปรเจ็กต์ จึงยังไม่รับคำสั่ง Deploy เพื่อไม่สร้าง Deploy ที่เปิด URL ไม่ได้</p>}
                 {backend?.routingReady && !canDeploy && <p>Framework builds ยังไม่เปิด กรุณาใช้ Static HTML ที่รองรับใน Pilot</p>}
                 <h3>Deployment history</h3>
@@ -250,7 +335,16 @@ export default function WorkspaceDeploy() {
                 {history.map(item => (
                   <div key={item.id} className="unified-deploy-history">
                     <code>{item.commit_sha.slice(0,8)}</code><span>{item.status}</span>
-                    {item.status === "success" && isSafeUrl(item.url) && <a href={item.url!} target="_blank" rel="noreferrer">Open <ArrowUpRight size={13} /></a>}
+                    <div className="unified-deploy-history-links">
+                      <button
+                        type="button"
+                        className="workspace-button workspace-button-secondary"
+                        onClick={() => openLogsModal(item.id)}
+                      >
+                        Logs
+                      </button>
+                      {item.status === "success" && isSafeUrl(item.url) && <a href={item.url!} target="_blank" rel="noreferrer">Open <ArrowUpRight size={13} /></a>}
+                    </div>
                   </div>
                 ))}
               </div>}
@@ -258,6 +352,23 @@ export default function WorkspaceDeploy() {
           </div>
         </>}
       </div>
+      <DeploymentLogsModal
+        open={logsModalOpen}
+        project={project ?? null}
+        focusedDeploymentId={focusedDeploymentId}
+        deployments={history}
+        webhookLogs={webhookLogs}
+        webhookVerificationActive={webhookVerificationActive}
+        lastCheckedAt={lastCheckedAt}
+        polling={logsPolling}
+        autoPolling={autoPolling}
+        pollError={logsPollError}
+        onToggleAutoPolling={() => setAutoPolling(prev => !prev)}
+        onRefreshNow={() => {
+          if (project) void fetchDeploymentsSnapshot(project.id).catch(() => undefined);
+        }}
+        onClose={() => setLogsModalOpen(false)}
+      />
     </WorkspaceChrome>
   );
 }

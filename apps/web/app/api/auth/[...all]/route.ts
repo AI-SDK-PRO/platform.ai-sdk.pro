@@ -78,10 +78,38 @@ async function handle(request: Request, context: Context) {
     const email = typeof input.email === "string" ? input.email : "";
     const password = typeof input.password === "string" ? input.password : "";
     const newPassword = typeof input.newPassword === "string" ? input.newPassword : "";
-    const respond = (result: { error: { status?: number; code?: string } | null }) =>
-      result.error
-        ? jsonError("Authentication operation failed.", result.error.code === "email_not_confirmed" ? 403 : result.error.status || 400)
-        : Response.json({ ok: true }, { headers: noStoreHeaders() });
+    const safeErrorForAuth = (err: { status?: number; code?: string }) => {
+      switch (err.code) {
+        case "email_not_confirmed":
+          return { status: 403, message: "Email address is not verified yet." };
+        case "invalid_credentials":
+          return { status: 401, message: "Invalid email or password." };
+        case "over_email_send_rate_limit":
+        case "over_request_rate_limit":
+          return { status: 429, message: "Too many requests. Please wait and try again." };
+        case "weak_password":
+          return { status: 400, message: "Password does not meet security requirements." };
+        case "email_address_invalid":
+          return { status: 400, message: "Invalid email address." };
+        case "signup_disabled":
+        case "email_provider_disabled":
+        case "provider_disabled":
+          return { status: 503, message: "This sign-in method is not enabled." };
+        default:
+          return {
+            status: err.status === 429 ? 429 : err.status || 400,
+            message:
+              err.status === 429
+                ? "Too many requests. Please wait and try again."
+                : "Authentication operation failed.",
+          };
+      }
+    };
+    const respond = (result: { error: { status?: number; code?: string } | null }) => {
+      if (!result.error) return Response.json({ ok: true }, { headers: noStoreHeaders() });
+      const mapped = safeErrorForAuth(result.error);
+      return jsonError(mapped.message, mapped.status);
+    };
 
     switch (operation) {
       case "sign-up/email":
@@ -95,7 +123,18 @@ async function handle(request: Request, context: Context) {
       case "link-social": {
         if (input.provider !== "github" && input.provider !== "google")
           return jsonError("Unsupported provider.", 400);
-        if (operation === "link-social") callback.searchParams.set("flow", "link");
+        if (operation === "link-social") {
+          callback.searchParams.set("flow", "link");
+        } else if (typeof input.callbackURL === "string") {
+          try {
+            const target = new URL(input.callbackURL, origin);
+            if (target.pathname.startsWith("/") && target.pathname !== "/") {
+              callback.searchParams.set("next", target.pathname);
+            }
+          } catch {
+            // Ignore malformed optional next path; validated above.
+          }
+        }
         const options = { redirectTo: callback.href, skipBrowserRedirect: true };
         const result = operation === "link-social"
           ? await auth.linkIdentity({ provider: input.provider, options })
@@ -118,8 +157,14 @@ async function handle(request: Request, context: Context) {
       case "reset-password": {
         if (typeof input.token !== "string" || !input.token)
           return jsonError("Invalid recovery token.", 400);
-        const recovery = await auth.verifyOtp({ type: "recovery", token_hash: input.token });
-        if (recovery.error) return respond(recovery);
+        if (input.token === "session") {
+          const current = await auth.getUser();
+          if (current.error || !current.data.user)
+            return jsonError("Invalid recovery session.", 401);
+        } else {
+          const recovery = await auth.verifyOtp({ type: "recovery", token_hash: input.token });
+          if (recovery.error) return respond(recovery);
+        }
         try {
           return respond(await auth.updateUser({ password: newPassword }));
         } finally {

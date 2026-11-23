@@ -15,9 +15,17 @@ async function mutate(path: string, input: object = {}): Promise<Result> {
     body: JSON.stringify(input),
     cache: "no-store",
   });
-  const data = await response.json();
-  if (!response.ok)
-    return { error: { status: response.status, message: data.error?.message || "Authentication failed." } };
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string | { message?: string };
+    url?: string;
+  };
+  if (!response.ok) {
+    const message =
+      typeof data.error === "string"
+        ? data.error
+        : data.error?.message || "Authentication failed.";
+    return { error: { status: response.status, message } };
+  }
   if (typeof data.url === "string") window.location.assign(data.url);
   return { error: null };
 }

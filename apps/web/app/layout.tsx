@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_Thai } from "next/font/google";
 import "@aisdkpro/ui/styles.css";
+import GoogleMapsQuotaGuard from "../components/GoogleMapsQuotaGuard";
 import SessionActivity from "../components/SessionActivity";
 import {
   HOME_PAGE_TITLE,
@@ -52,6 +53,7 @@ export default function RootLayout({
             __html: JSON.stringify(websiteStructuredData),
           }}
         />
+        <GoogleMapsQuotaGuard />
         <SessionActivity>{children}</SessionActivity>
         <SpeedInsights />
       </body>

@@ -283,6 +283,41 @@ describe("Supabase auth route boundary", () => {
     expect(response.status).toBe(400);
     expect(mocks.getAuth).not.toHaveBeenCalled();
   });
+  it("maps unverified email login cleanly to 403 without leaking internals", async () => {
+    mocks.signInWithPassword.mockResolvedValueOnce({
+      error: { status: 400, code: "email_not_confirmed", message: "raw supabase detail" },
+    });
+    const response = await postAuthEndpoint(
+      requestWithJson("https://ai-sdk.pro/api/auth/sign-in/email", {
+        email: "user@example.com",
+        password: "test-only-password",
+      }),
+      authContext("sign-in", "email")
+    );
+    expect(response.status).toBe(403);
+    const data = await response.json();
+    expect(data).toEqual({ error: "Email address is not verified yet." });
+  });
+  it("supports PKCE recovery session password reset and signs out locally afterwards", async () => {
+    const getUser = vi.fn().mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    const updateUser = vi.fn().mockResolvedValue({ error: null });
+    mocks.getAuth.mockResolvedValueOnce({
+      getUser,
+      updateUser,
+      signOut: mocks.signOut,
+    });
+    const response = await postAuthEndpoint(
+      requestWithJson("https://ai-sdk.pro/api/auth/reset-password", {
+        token: "session",
+        newPassword: "very-secure-new-password",
+      }),
+      authContext("reset-password")
+    );
+    expect(response.status).toBe(200);
+    expect(getUser).toHaveBeenCalledTimes(1);
+    expect(updateUser).toHaveBeenCalledWith({ password: "very-secure-new-password" });
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
   it("does not intercept Supabase GitHub sign-in with repository OAuth", async () => {
     const { GET } = await import("./auth/[...all]/route");
     const response = await GET(

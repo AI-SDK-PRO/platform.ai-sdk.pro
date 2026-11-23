@@ -1,8 +1,12 @@
 {
-    email {$ACME_EMAIL}
+    email {$ACME_EMAIL:ops@ai-sdk.pro}
 }
 
-{$DOMAIN} {
+www.{$DOMAIN:ai-sdk.pro} {
+    redir https://{$DOMAIN:ai-sdk.pro}{uri} 301
+}
+
+{$DOMAIN:ai-sdk.pro}, {$PLATFORM_DOMAIN:platform.ai-sdk.pro} {
     @chat path /api/chat
     header @chat {
         Cache-Control "no-cache"
@@ -12,5 +16,7 @@
     reverse_proxy app:3000 {
         flush_interval -1
         header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
     }
 }

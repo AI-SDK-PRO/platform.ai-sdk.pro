@@ -19,6 +19,8 @@ const config: NextConfig = {
         ...webpackConfig.watchOptions,
         ignored: [
           '**/.git/**',
+          '**/.next/**',
+          '**/.next-dev/**',
           '**/node_modules/**',
           '**/apps/agent-worker/**',
           '**/packages/create-webapp/templates/**',

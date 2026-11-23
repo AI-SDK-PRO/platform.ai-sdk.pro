@@ -64,7 +64,8 @@ export function getPlatformConfig(): PlatformConfig {
   const databaseUrl = process.env.SUPABASE_DB_URL?.trim() || "";
   const secret = process.env.BETTER_AUTH_SECRET?.trim() || "";
   const missingConfiguration: string[] = [];
-  if (!databaseUrl) missingConfiguration.push("SUPABASE_DB_URL");
+  if (!/^postgres(?:ql)?:\/\//i.test(databaseUrl))
+    missingConfiguration.push("SUPABASE_DB_URL");
   if (secret.length < 32) missingConfiguration.push("BETTER_AUTH_SECRET");
   try {
     const authUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "");
@@ -139,12 +140,14 @@ export function trustedPlatformOrigins(config = getPlatformConfig()): string[] {
   ) {
     origins.push(...CANONICAL_PLATFORM_ORIGINS);
   }
-  for (const vercelOrigin of [
+  for (const hostOrigin of [
+    normalizeVercelOrigin(process.env.DOMAIN),
+    normalizeVercelOrigin(process.env.PLATFORM_DOMAIN),
     normalizeVercelOrigin(process.env.VERCEL_URL),
     normalizeVercelOrigin(process.env.VERCEL_BRANCH_URL),
     normalizeVercelOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL),
   ]) {
-    if (vercelOrigin) origins.push(vercelOrigin);
+    if (hostOrigin) origins.push(hostOrigin);
   }
   const extraOrigins = (process.env.APP_ORIGINS ?? "")
     .split(",")
@@ -213,8 +216,8 @@ export function isTrustedMutationOrigin(request: Request): boolean {
       incoming.protocol === "http:" &&
       LOOPBACK_HOSTS.has(incoming.hostname) &&
       reqUrl.protocol === "http:" &&
-      LOOPBACK_HOSTS.has(reqUrl.hostname) &&
-      incoming.origin === reqUrl.origin
+      (LOOPBACK_HOSTS.has(reqUrl.hostname) || reqUrl.hostname === "0.0.0.0") &&
+      incoming.port === reqUrl.port
     ) {
       return true;
     }

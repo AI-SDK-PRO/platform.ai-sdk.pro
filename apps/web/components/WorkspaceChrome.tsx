@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
-  BookOpen, BookUser, HardDrive, KeyRound, Library, LoaderCircle,
+  BookOpen, BookUser, Globe, HardDrive, KeyRound, Library, LoaderCircle,
   LogOut, MessageSquare, Rocket, UserRound, LayoutTemplate,
 } from "lucide-react";
 import SiteHeader from "./SiteHeader";
@@ -27,6 +27,7 @@ function initials(user: PlatformSession["user"]): string {
 const links = [
   { href: "/workspace", label: "Repositories", icon: Library },
   { href: "/workspace/deploy", label: "Deployments", icon: Rocket },
+  { href: "/workspace/regions", label: "Regions", icon: Globe },
   { href: "/workspace/storage", label: "Storage", icon: HardDrive },
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/templates", label: "Templates", icon: LayoutTemplate },

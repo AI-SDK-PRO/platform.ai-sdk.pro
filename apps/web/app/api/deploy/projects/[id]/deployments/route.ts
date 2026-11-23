@@ -1,7 +1,8 @@
+import { getPlatformSql } from "@/lib/db/client";
 import {
   authenticatedDeployContext, authorizedRepositoryForDeployment, controlPlane,
   DeploymentBridgeError, newDeploymentIdempotencyKey, type DeploymentEntry,
-  type ProjectList,
+  type ProjectList, type WebhookLogEntry,
 } from "@/lib/deploy-bridge";
 import { checkPlatformRateLimit, isTrustedMutationOrigin, jsonError,
   noStoreHeaders, safePlatformError } from "@/lib/platform-policy";
@@ -25,15 +26,51 @@ async function ownedProject(request: Request, id: string) {
   return { ...context, project, routingReady: result.routingReady };
 }
 
+async function loadOwnedWebhookLogs(userId: string, repoId: number): Promise<WebhookLogEntry[]> {
+  const sql = getPlatformSql();
+  if (!sql) return [];
+  try {
+    const rows = await sql`
+      SELECT intake.delivery_id, intake.target, intake.branch, intake.commit_sha,
+        intake.dispatch_status, intake.received_at, intake.dispatch_started_at, intake.github_run_id
+      FROM aisdk_pro.deployment_intake intake
+      JOIN aisdk_pro.deployment_project project ON project.id = intake.project_id
+      JOIN aisdk_pro.imported_repository repo ON repo.id = project.repository_id
+      WHERE repo.user_id = ${userId} AND repo.github_id = ${repoId}
+      ORDER BY intake.received_at DESC
+      LIMIT 25
+    `;
+    return rows.map(row => ({
+      deliveryId: String(row.delivery_id),
+      target: String(row.target),
+      branch: String(row.branch),
+      commitSha: String(row.commit_sha),
+      dispatchStatus: String(row.dispatch_status),
+      receivedAt: String(row.received_at),
+      dispatchStartedAt: row.dispatch_started_at == null ? null : String(row.dispatch_started_at),
+      githubRunId: row.github_run_id == null ? null : Number(row.github_run_id),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(request: Request, context: Context): Promise<Response> {
   try {
     const { id } = await context.params;
-    const { actor, project } = await ownedProject(request, id);
+    const { userId, actor, project } = await ownedProject(request, id);
     if (!checkPlatformRateLimit(String(actor.githubId), "read"))
       return jsonError("Too many requests.", 429);
-    const history = await controlPlane<{deployments:DeploymentEntry[]}>(actor, "history",
-      { projectId: project.id });
-    return Response.json(history, { headers: noStoreHeaders() });
+    const [history, webhookLogs] = await Promise.all([
+      controlPlane<{deployments:DeploymentEntry[]}>(actor, "history", { projectId: project.id }),
+      loadOwnedWebhookLogs(userId, project.repo_id),
+    ]);
+    return Response.json({
+      deployments: history.deployments,
+      webhookLogs,
+      webhookVerificationActive: Boolean(process.env.GITHUB_DEPLOY_WEBHOOK_SECRET?.trim()),
+      checkedAt: new Date().toISOString(),
+    }, { headers: noStoreHeaders() });
   } catch (error) { return fail(error); }
 }
 

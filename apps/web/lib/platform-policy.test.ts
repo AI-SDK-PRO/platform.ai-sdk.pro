@@ -84,6 +84,20 @@ describe("platform configuration", () => {
         new Request("https://ai-sdk.pro/api/repositories")
       )
     ).toBe(false);
+    expect(
+      isTrustedMutationOrigin(
+        new Request("http://0.0.0.0:3000/api/auth/sign-in/email", {
+          headers: { Origin: "http://127.0.0.1:3000" },
+        })
+      )
+    ).toBe(true);
+    expect(
+      isTrustedMutationOrigin(
+        new Request("http://0.0.0.0:3000/api/auth/sign-in/email", {
+          headers: { Origin: "http://127.0.0.1:9999" },
+        })
+      )
+    ).toBe(false);
   });
 
   it("resolves trusted public request origin for OAuth callbacks without trusting evil hosts", () => {
@@ -111,6 +125,25 @@ describe("platform configuration", () => {
     expect(resolvePublicOrigin(evilReq)).toBe("https://ai-sdk.pro");
   });
 
+  it("flags non-postgres SUPABASE_DB_URL and trusts DOMAIN/PLATFORM_DOMAIN origins", async () => {
+    vi.stubEnv("SUPABASE_DB_URL", "https://not-a-postgres-url.example");
+    vi.stubEnv("BETTER_AUTH_SECRET", "test-only-secret-0123456789abcdef0123");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://fixture.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "fixture");
+    expect(platformStatus().configured).toBe(false);
+    expect(platformStatus().missingConfiguration).toContain("SUPABASE_DB_URL");
+
+    const { trustedPlatformOrigins } = await import("./platform-policy");
+    vi.stubEnv("DOMAIN", "custom-vps.example");
+    vi.stubEnv("PLATFORM_DOMAIN", "platform.custom-vps.example");
+    expect(trustedPlatformOrigins()).toEqual(
+      expect.arrayContaining([
+        "https://custom-vps.example",
+        "https://platform.custom-vps.example",
+      ])
+    );
+  });
+
   it("preserves safe PlatformAuthenticationError messages while redacting sensitive strings", () => {
     expect(
       safePlatformError(
@@ -132,3 +165,4 @@ describe("platform configuration", () => {
     });
   });
 });
+

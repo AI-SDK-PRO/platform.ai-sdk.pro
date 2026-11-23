@@ -25,10 +25,38 @@ it("confirms an email without establishing a browser session", async () => {
   expect(response.headers.has("set-cookie")).toBe(false);
 });
 
-it("uses the browser-bound code exchange for OAuth", async () => {
+it("uses the browser-bound code exchange for OAuth and preserves safe next paths", async () => {
   mocks.exchangeCodeForSession.mockResolvedValue({ error: null });
-  const response = await GET(new Request("https://platform.ai-sdk.pro/api/auth/callback?code=test"));
-  expect(response.headers.get("location")).toBe("https://platform.ai-sdk.pro/");
+  const response = await GET(
+    new Request("https://platform.ai-sdk.pro/api/auth/callback?code=test&next=%2Fworkspace")
+  );
+  expect(response.headers.get("location")).toBe("https://platform.ai-sdk.pro/workspace");
   expect(mocks.exchangeCodeForSession).toHaveBeenCalledWith("test");
   expect(mocks.verifySupabaseEmail).not.toHaveBeenCalled();
+
+  const unsafe = await GET(
+    new Request("https://platform.ai-sdk.pro/api/auth/callback?code=test&next=%2F%2Fevil.example")
+  );
+  expect(unsafe.headers.get("location")).toBe("https://platform.ai-sdk.pro/");
 });
+
+it("supports both token_hash and PKCE code on password recovery", async () => {
+  const { GET: getRecovery } = await import("../recovery/route");
+
+  const tokenHashRes = await getRecovery(
+    new Request("https://platform.ai-sdk.pro/api/auth/recovery?token_hash=recovery-hash")
+  );
+  expect(tokenHashRes.headers.get("location")).toBe(
+    "https://platform.ai-sdk.pro/reset-password?token=recovery-hash"
+  );
+
+  mocks.exchangeCodeForSession.mockResolvedValue({ error: null });
+  const pkceRes = await getRecovery(
+    new Request("https://platform.ai-sdk.pro/api/auth/recovery?code=pkce-recovery-code")
+  );
+  expect(mocks.exchangeCodeForSession).toHaveBeenCalledWith("pkce-recovery-code");
+  expect(pkceRes.headers.get("location")).toBe(
+    "https://platform.ai-sdk.pro/reset-password?token=session"
+  );
+});
+

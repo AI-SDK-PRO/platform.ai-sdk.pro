@@ -2,10 +2,11 @@
 
 FROM node:22-bookworm-slim AS base
 WORKDIR /repo
+RUN corepack enable && corepack prepare pnpm@10.18.0 --activate
 
 FROM base AS deps
 COPY . .
-RUN npm ci --no-audit --no-fund
+RUN pnpm install --no-frozen-lockfile
 
 # Build this named target separately for the staging preview queue.
 FROM deps AS preview-dispatcher
@@ -15,7 +16,7 @@ CMD ["bash", "infra/project-preview/run-dispatcher.sh"]
 
 FROM deps AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN pnpm --filter @aisdkpro/client build && pnpm --filter @aisdkpro/web build
 
 FROM node:22-bookworm-slim AS runner
 ENV NODE_ENV=production \

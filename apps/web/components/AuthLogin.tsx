@@ -31,10 +31,13 @@ export default function AuthLogin({
         provider,
         callbackURL: window.location.origin + "/",
       });
-      if (result.error)
+      if (result.error) {
         setAuthError(
-          "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการใน Supabase Auth"
+          result.error.status === 503
+            ? "ระบบยืนยันตัวตนยังตั้งค่าไม่ครบ กรุณาตรวจสอบตัวแปรสภาพแวดล้อม Supabase บนเซิร์ฟเวอร์"
+            : "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการและ Redirect URL ใน Supabase Auth"
         );
+      }
     } catch {
       setAuthError("เชื่อมต่อระบบเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
     } finally {

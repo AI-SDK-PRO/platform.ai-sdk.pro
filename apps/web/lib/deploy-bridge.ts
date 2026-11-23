@@ -37,6 +37,16 @@ export type DeploymentEntry = {
   created_at: number;
   finished_at: number | null;
 };
+export type WebhookLogEntry = {
+  deliveryId: string;
+  target: string;
+  branch: string;
+  commitSha: string;
+  dispatchStatus: string;
+  receivedAt: string;
+  dispatchStartedAt: string | null;
+  githubRunId: number | null;
+};
 
 export class DeploymentBridgeError extends Error {
   constructor(message: string, readonly status = 503) {
@@ -64,7 +74,7 @@ export async function authenticatedDeployContext(request: Request) {
       !/^[A-Za-z0-9-]{1,39}$/.test(profile.login)) {
     throw new DeploymentBridgeError("GitHub account could not be verified.", 401);
   }
-  return { token: githubToken, actor: { githubId: profile.id, login: profile.login } };
+  return { userId: session.id, token: githubToken, actor: { githubId: profile.id, login: profile.login } };
 }
 
 export async function controlPlane<T>(

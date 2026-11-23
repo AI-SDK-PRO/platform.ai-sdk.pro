@@ -42,6 +42,8 @@ services:
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
+    env_file:
+      - /opt/ai-sdk-pro/config/app.env
     depends_on:
       app:
         condition: service_healthy

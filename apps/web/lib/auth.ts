@@ -70,27 +70,40 @@ export async function getSessionUser(_request: Request) {
   const now = new Date();
   // Keep existing app foreign keys without managing passwords or auth sessions
   // ourselves. Identity is keyed only by a verified Supabase ID or an explicit migration mapping, never by email.
-  await db
-    .insert(user)
-    .values({
-      id: identity.id,
-      name: identity.name,
-      email: identity.email,
-      emailVerified: true,
-      image: identity.image ?? null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: user.id,
-      set: {
+  try {
+    await db
+      .insert(user)
+      .values({
+        id: identity.id,
         name: identity.name,
         email: identity.email,
         emailVerified: true,
         image: identity.image ?? null,
+        createdAt: now,
         updatedAt: now,
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: user.id,
+        set: {
+          name: identity.name,
+          email: identity.email,
+          emailVerified: true,
+          image: identity.image ?? null,
+          updatedAt: now,
+        },
+      });
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : "";
+    if (code === "23505") {
+      throw new PlatformAuthenticationError(
+        "This email belongs to a legacy account that requires explicit identity mapping."
+      );
+    }
+    throw error;
+  }
   return { ...publicUser(identity), emailVerified: true };
 }
 export async function requireSessionUser(request: Request) {
