@@ -55,6 +55,10 @@ export default $config({
   async run() {
     const web = new sst.aws.Nextjs("PlatformWeb", {
       path: "apps/web",
+      // Pin to the OpenNext line selected by SST for Next.js 15+; use its AWS config file.
+      openNextVersion: "3.9.14",
+      buildCommand:
+        "npx --yes @opennextjs/aws@3.9.14 build --config-path open-next.aws.config.ts",
       server: {
         runtime: "nodejs22.x",
         timeout: "60 seconds",
