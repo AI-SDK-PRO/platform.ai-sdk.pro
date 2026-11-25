@@ -8,6 +8,8 @@
 แพลตฟอร์มสำหรับสร้าง AI agents และเรียกใช้งานผ่าน AI SDK 6 UI Message Stream **deploy หลักแนะนำ Vercel + Supabase** (import GitHub repo แล้ว deploy อัตโนมัติ ไม่ต้อง VPS) ดู **[infra/DEPLOY-VERCEL.md](infra/DEPLOY-VERCEL.md)**
 Self-host บน VPS ยังมีใน [SETUP-VPS.md](SETUP-VPS.md) / [infra/DEPLOY-COOLIFY.md](infra/DEPLOY-COOLIFY.md) เป็น legacy
 
+เตรียมทางเลือก AWS Amplify ไว้ที่ [infra/DEPLOY-AMPLIFY.md](infra/DEPLOY-AMPLIFY.md) — โปรดอ่านข้อจำกัด Next.js 16 ก่อน เพราะ Amplify SSR ที่ AWS ระบุยังรองรับถึง Next.js 15
+
 แชท public ใช้ BYOK: ผู้ใช้เลือกบริการ AI และกรอก API key ของตัวเอง คีย์ของเจ้าของเว็บไม่ถูกส่งให้ผู้ใช้
 
 > ai-sdk.pro เป็นแหล่งข้อมูลและซอฟต์แวร์อิสระ ไม่ใช่เว็บไซต์ทางการของ Vercel โปรดอ้างอิงเอกสารทางการของ AI SDK สำหรับรายละเอียด API รุ่นล่าสุด
