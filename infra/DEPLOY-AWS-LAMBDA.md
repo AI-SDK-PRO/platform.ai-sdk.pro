@@ -16,7 +16,7 @@ SST's AWS Next.js component uses OpenNext to package Next.js for AWS. OpenNext t
 
 ## Set configuration
 
-1. Use AWS credentials that can create the stack's CloudFormation, IAM, Lambda, CloudFront, S3, and related cache resources. Check the account and selected region:
+1. Use Node.js 22 and AWS credentials that can create the stack's CloudFormation, IAM, Lambda, CloudFront, S3, and related cache resources. Check the account, Node version, and selected region:
 
    ```sh
    aws sts get-caller-identity
@@ -27,7 +27,7 @@ SST's AWS Next.js component uses OpenNext to package Next.js for AWS. OpenNext t
 
 2. Copy `.env.aws.example` to the ignored root `.env` and fill its public/non-secret settings. In particular, set the actual public Supabase URL and publishable key, and the production `BETTER_AUTH_URL` and `APP_ORIGINS`.
 
-3. Store the required secrets in the production SST stage. The values are stored as SST secrets; they are not checked into Git:
+3. Install the locked npm workspace dependencies from the repository root:\n\n   \\`\\`\\`sh\\n   npm ci\\n   \\`\\`\\`\n\n4. Store the required secrets in the production SST stage. The values are stored as SST secrets; they are not checked into Git:
 
    ```sh
    npx sst@latest secret set SupabaseDbUrl '<Supabase Postgres connection URL>' --stage production
