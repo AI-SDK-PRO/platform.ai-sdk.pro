@@ -7,6 +7,7 @@ applications:
       phases:
         preBuild:
           commands:
+            - nvm use 22
             - npm ci --cache .npm --prefer-offline
         build:
           commands:
