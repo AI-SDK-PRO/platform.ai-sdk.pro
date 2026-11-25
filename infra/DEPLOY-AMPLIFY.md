@@ -6,6 +6,7 @@
 
 - Main application: `apps/web`
 - Package manager: npm workspaces, using the root `package-lock.json`
+- Build runtime: Node.js 22 (`nvm use 22` in `amplify.yml`; use an Amplify AL2023 build image)
 - Build command: root `npm run build` (builds the shared SDK, create-webapp package, and web app)
 - Next.js build output: `apps/web/.next`
 - Monorepo build root: repository root
@@ -15,10 +16,11 @@ The repository-root `amplify.yml` uses Amplify's monorepo `applications` syntax,
 ## Before creating an Amplify app
 
 1. Resolve the Next.js 16 compatibility blocker. The supported path documented by AWS Amplify is currently Next.js 12–15. Moving this app to Next.js 15 is a framework downgrade and must be checked against the app's APIs and dependencies before deployment.
-2. In AWS Amplify, create or connect an app from `AI-SDK-PRO/platform.ai-sdk.pro` and select the intended branch.
-3. Choose the monorepo option and set the app root to `apps/web`. Confirm the branch has `AMPLIFY_MONOREPO_APP_ROOT=apps/web`; Amplify normally creates this value when the monorepo app root is selected.
-4. Add the runtime environment variables required by the app in Amplify's branch settings. Use the current application configuration as the source of truth; keep secrets in Amplify and never commit them.
-5. After compatibility is resolved, start a build and inspect both the build log and the deployed URL.
+2. Select an Amplify AL2023 build image so Node.js 22 is available; the build spec pins it with `nvm use 22`.
+3. In AWS Amplify, create or connect an app from `AI-SDK-PRO/platform.ai-sdk.pro` and select the intended branch.
+4. Choose the monorepo option and set the app root to `apps/web`. Confirm the branch has `AMPLIFY_MONOREPO_APP_ROOT=apps/web`; Amplify normally creates this value when the monorepo app root is selected.
+5. Add the runtime environment variables required by the app in Amplify's branch settings. Use the current application configuration as the source of truth; keep secrets in Amplify and never commit them.
+6. After compatibility is resolved, start a build and inspect both the build log and the deployed URL.
 
 ## Scope and routing
 
