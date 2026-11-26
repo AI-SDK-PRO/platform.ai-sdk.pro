@@ -17,7 +17,7 @@ Self-host บน VPS ยังมีใน [SETUP-VPS.md](SETUP-VPS.md) / [infra
 ## Deploy โดยไม่ใช้ VPS
 
 เชื่อมรีโปกับ Vercel แล้วตั้งค่า Neon และ Google OAuth ตาม [คู่มือ Vercel](infra/DEPLOY-VERCEL.md)
-ใช้ Google, GitHub หรืออีเมลในการเข้าสู่ระบบ ตัวเชื่อม GitHub App สำหรับนำเข้ารีโปอยู่ที่ Workspace → Account
+เข้าสู่ระบบด้วย Google ผ่าน Better Auth; GitHub App ใช้เชื่อม Repository ที่ Workspace → Account
 
 ### Rate limit ผู้เยี่ยม (public `/api/chat`)
 
