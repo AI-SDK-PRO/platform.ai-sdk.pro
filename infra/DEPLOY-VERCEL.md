@@ -128,3 +128,4 @@ curl -fsS -o /dev/null -w "%{http_code}\n" "<origin>/login"
 4. Google OAuth redirect URI
 5. GitHub OAuth App + callback
 6. Deploy → smoke tests
+7. (ทางเลือก) custom domain + Cloudflare user-deploy เฟส 2

@@ -178,3 +178,4 @@ if [[ "$PASS" -lt 4 || "$FAIL" -gt 0 ]]; then
   die "Public VPS verification failed ($FAIL failures) — inspect: docker compose -f $COMPOSE logs --tail=80 app caddy"
 fi
 
+log "Release ${SHORT_SHA} is up. Image tag: $APP_IMAGE"
