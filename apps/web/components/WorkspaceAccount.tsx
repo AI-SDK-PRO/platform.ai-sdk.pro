@@ -4,10 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   Github,
-  KeyRound,
   Link2,
   LoaderCircle,
-  LockKeyhole,
   MailCheck,
   ShieldCheck,
 } from "lucide-react";
@@ -46,39 +44,6 @@ export default function WorkspaceAccount() {
   const [logoutPending, setLogoutPending] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  async function linkLogin(provider: "google" | "github") {
-    setError("");
-    setBusy(true);
-    try {
-      const result = await authClient.linkSocial({
-        provider,
-        callbackURL: window.location.origin + "/workspace/account",
-      });
-      if (result.error) throw new Error("Link failed.");
-    } catch {
-      setError("เพิ่มวิธีเข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการตั้งค่า Supabase Auth");
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function setPassword() {
-    if (!settings) return;
-    setBusy(true);
-    setError("");
-    try {
-      const result = await authClient.requestPasswordReset({
-        email: settings.email,
-        redirectTo: window.location.origin + "/reset-password",
-      });
-      if (result.error) throw new Error("Request failed.");
-      setNotice("กรุณาตรวจอีเมลเพื่อตั้งรหัสผ่านของบัญชี Supabase");
-    } catch {
-      setError("ส่งลิงก์ตั้งรหัสผ่านไม่สำเร็จ");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const refresh = useCallback(async () => {
     const [current, capabilities] = await Promise.all([
       json<PlatformSession>("/api/platform/session"),
@@ -108,9 +73,7 @@ export default function WorkspaceAccount() {
     setBusy(true);
     setError("");
     setNotice("");
-    // GitHub App repository authorization is separate from Supabase GitHub Login.
-    // This endpoint binds the OAuth token to the currently authenticated
-    // Supabase workspace user and validates its signed OAuth state.
+    // Repository authorization is separate from Google platform sign-in.
     window.location.assign("/api/connections/github");
   }
 
@@ -138,8 +101,7 @@ export default function WorkspaceAccount() {
         <span className="workspace-account-kicker">WORKSPACE / ACCOUNT</span>
         <h1>บัญชีและการเชื่อมต่อ</h1>
         <p>
-          Supabase Auth เป็นบัญชีหลักของคุณ ส่วน GitHub ใช้เชื่อม Repository และ
-          Deploy ภายในบัญชีเดียวกัน
+          Better Auth ใช้ Google สำหรับบัญชีแพลตฟอร์ม ส่วน GitHub ใช้เชื่อม Repository และ Deploy
         </p>
         {phase === "loading" && (
           <p role="status">
@@ -178,57 +140,11 @@ export default function WorkspaceAccount() {
                   {settings.emailVerified ? "Verified" : "Not verified"}
                 </span>
                 <span>
-                  <LockKeyhole size={15} /> Google:{" "}
+                  <ShieldCheck size={15} /> Google:{" "}
                   {settings.googleLogin ? "Connected" : "Not connected"}
                 </span>
-                <span>
-                  <Github size={15} /> GitHub Login:{" "}
-                  {settings.githubLogin ? "Connected" : "Not connected"}
-                </span>
-                <span>
-                  <KeyRound size={15} /> Email / Password:{" "}
-                  {settings.password ? "Enabled" : "Not set"}
-                </span>
               </div>
-              {!settings.googleLogin && (
-                <button
-                  type="button"
-                  className="workspace-button workspace-button-secondary"
-                  disabled={busy || !settings.emailVerified}
-                  onClick={() => {
-                    void linkLogin("google");
-                  }}
-                >
-                  Add Google as sign-in method
-                </button>
-              )}
-              {!settings.githubLogin && (
-                <button
-                  type="button"
-                  className="workspace-button workspace-button-secondary"
-                  disabled={busy || !settings.emailVerified}
-                  onClick={() => {
-                    void linkLogin("github");
-                  }}
-                >
-                  <Github size={15} /> Add GitHub as sign-in method
-                </button>
-              )}
-              <button
-                type="button"
-                className="workspace-button workspace-button-secondary"
-                disabled={busy}
-                onClick={() => {
-                  void setPassword();
-                }}
-              >
-                ส่งอีเมลตั้ง / รีเซ็ตรหัสผ่าน
-              </button>
-              <p className="workspace-account-help">
-                เพิ่มวิธีเข้าสู่ระบบจากหน้านี้เพื่อให้ทุกวิธีใช้ Supabase User ID
-                และ Workspace เดียวกัน การเชื่อมวิธีเข้าสู่ระบบจัดการโดย Supabase
-                Auth ไม่ได้ใช้บัญชี Firebase เดิม
-              </p>
+              <p className="workspace-account-help">บัญชีและเซสชันจัดการโดย Better Auth บนฐานข้อมูล PostgreSQL ของแพลตฟอร์ม</p>
               {!settings.emailVerified && (
                 <p>ยืนยันอีเมลก่อนเพิ่มวิธีเข้าสู่ระบบหรือเชื่อมบัญชีอื่น</p>
               )}
@@ -254,7 +170,7 @@ export default function WorkspaceAccount() {
                   disabled={
                     busy ||
                     !platform?.githubConfigured ||
-                    !settings.emailVerified
+                    false
                   }
                   onClick={() => {
                     void linkGithub();

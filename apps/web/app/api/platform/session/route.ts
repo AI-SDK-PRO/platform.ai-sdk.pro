@@ -11,7 +11,7 @@ async function respond(request: Request) {
   if (request.method === "POST" && !isTrustedMutationOrigin(request))
     return jsonError("Origin is not allowed.", 403);
   try {
-    const session = await getManagedSession();
+    const session = await getManagedSession(request);
     const current = session?.user?.emailVerified === true ? session : null;
     return Response.json(
       {

@@ -1,11 +1,11 @@
 # ai-sdk.pro (monorepo รวม platform + web)
 
-> **Auth และฐานข้อมูลในซอร์สนี้** ใช้ Supabase Auth + Supabase Postgres ดู [การตั้งค่า Preview และแผนย้ายข้อมูล](SUPABASE-MIGRATION.md)
+> **Auth และฐานข้อมูลในซอร์สนี้** ใช้ Better Auth + Neon PostgreSQL
 
 
 รีโป canonical: **`z-ey3eiei/platform.ai-sdk.pro`** — รวมซอร์สจาก `ai-sdk-pro` และชั้นแพลตฟอร์ม (Firebase workspace, deploy, `create-webapp` CLI) ใน monorepo เดียว
 
-แพลตฟอร์มสำหรับสร้าง AI agents และเรียกใช้งานผ่าน AI SDK 6 UI Message Stream **deploy หลักแนะนำ Vercel + Supabase** (import GitHub repo แล้ว deploy อัตโนมัติ ไม่ต้อง VPS) ดู **[infra/DEPLOY-VERCEL.md](infra/DEPLOY-VERCEL.md)**
+แพลตฟอร์มสำหรับสร้าง AI agents และเรียกใช้งานผ่าน AI SDK 6 UI Message Stream **deploy หลักแนะนำ Vercel + Neon PostgreSQL** (import GitHub repo แล้ว deploy อัตโนมัติ ไม่ต้อง VPS) ดู **[infra/DEPLOY-VERCEL.md](infra/DEPLOY-VERCEL.md)**
 Self-host บน VPS ยังมีใน [SETUP-VPS.md](SETUP-VPS.md) / [infra/DEPLOY-COOLIFY.md](infra/DEPLOY-COOLIFY.md) เป็น legacy
 
 แชท public ใช้ BYOK: ผู้ใช้เลือกบริการ AI และกรอก API key ของตัวเอง คีย์ของเจ้าของเว็บไม่ถูกส่งให้ผู้ใช้
@@ -16,7 +16,7 @@ Self-host บน VPS ยังมีใน [SETUP-VPS.md](SETUP-VPS.md) / [infra
 
 ## Deploy โดยไม่ใช้ VPS
 
-เชื่อมรีโปกับ Vercel แล้วตั้งค่า Supabase สำหรับ Preview ตาม [คู่มือ](SUPABASE-MIGRATION.md)
+เชื่อมรีโปกับ Vercel แล้วตั้งค่า Neon และ Google OAuth ตาม [คู่มือ Vercel](infra/DEPLOY-VERCEL.md)
 ใช้ Google, GitHub หรืออีเมลในการเข้าสู่ระบบ ตัวเชื่อม GitHub App สำหรับนำเข้ารีโปอยู่ที่ Workspace → Account
 
 ### Rate limit ผู้เยี่ยม (public `/api/chat`)
@@ -81,7 +81,7 @@ Production ใช้ `BYOK_ONLY=true` (เป็นค่าเริ่มต�
 
 ## ขอบเขตของ foundation ชุดนี้
 
-โค้ดที่มีอยู่จริงคือ public BYOK chat, Supabase Auth login, GitHub link สำหรับ personal workspace กับ read-only repository snapshot import, เอกสาร, starter source downloads, `@aisdkpro/client` สำหรับ UI Message Stream และ self-hosting ของแพลตฟอร์มเอง สถานะ Deploy ไป Coolify และ platform keys ระบุไว้ในหัวข้อสถานะล่าสุด ระบบ build/runtime สำหรับโปรเจกต์ของผู้ใช้ทั่วไป, deployment API สำหรับผู้ใช้, platform CLI และ npm publication ของ Client SDK ยังไม่อยู่ในขอบเขตนี้ ไม่จำลองสถานะว่า deploy repo แล้ว และยังไม่สร้าง Worker ใหม่เพื่อทำซ้ำกับ DevStack
+โค้ดที่มีอยู่จริงคือ public BYOK chat, Google login ผ่าน Better Auth, GitHub link สำหรับ personal workspace กับ read-only repository snapshot import, เอกสาร, starter source downloads, `@aisdkpro/client` สำหรับ UI Message Stream และ self-hosting ของแพลตฟอร์มเอง สถานะ Deploy ไป Coolify และ platform keys ระบุไว้ในหัวข้อสถานะล่าสุด ระบบ build/runtime สำหรับโปรเจกต์ของผู้ใช้ทั่วไป, deployment API สำหรับผู้ใช้, platform CLI และ npm publication ของ Client SDK ยังไม่อยู่ในขอบเขตนี้ ไม่จำลองสถานะว่า deploy repo แล้ว และยังไม่สร้าง Worker ใหม่เพื่อทำซ้ำกับ DevStack
 
 ดังนั้น SDK ปัจจุบันรองรับการเรียก chat endpoint จริงเท่านั้น ไม่ได้สร้าง deploy/project API จำลอง ไฟล์ Docker/Caddy/GitHub Actions เป็น deployment foundation ส่วนงาน deployment จริงต้องตรวจ source revision, HTTP, DNS และ TLS บนเซิร์ฟเวอร์เป้าหมายก่อนรายงานสำเร็จ ไม่ควรสรุปจากไฟล์ configuration เพียงอย่างเดียว
 

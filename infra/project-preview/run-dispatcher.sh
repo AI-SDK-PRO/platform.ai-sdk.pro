@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${SUPABASE_DB_URL:?Configure the staging Supabase connection}"
+: "${NEON_DATABASE_URL:?Configure the staging Neon connection}"
 : "${PREVIEW_PILOT_PROJECT_ID:?Configure the staging pilot project ID}"
 : "${PREVIEW_PILOT_REPOSITORY:?Configure the GitHub pilot repository}"
 : "${PREVIEW_PILOT_INSTALLATION_ID:?Configure the GitHub App installation ID}"

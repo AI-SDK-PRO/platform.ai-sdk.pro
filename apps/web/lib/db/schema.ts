@@ -7,7 +7,6 @@ import {
   text,
   timestamp,
   uniqueIndex,
-  uuid,
 } from "drizzle-orm/pg-core";
 
 export const appSchema = pgSchema("aisdk_pro");
@@ -144,8 +143,3 @@ export const repositoryFile = appSchema.table(
 export const appTables = { importedRepository, repositoryFile };
 export const authTables = { user, session, account, verification };
 export const dbSchema = { ...authTables, ...appTables };
-
-export const authIdentity = appSchema.table("auth_identity", {
-  supabaseId: uuid("supabase_id").primaryKey(),
-  userId: text("user_id").notNull().unique().references(() => user.id, { onDelete: "cascade" }),
-});

@@ -101,8 +101,8 @@ for i in $(seq 1 45); do
   sleep 2
 done
 
-log "Supabase migrations (host needs node_modules from pnpm install, or run from a builder machine)"
-if grep -q '^SUPABASE_DB_URL=.\+' "$CONFIG_ENV" 2>/dev/null && [[ -d "$CURRENT/node_modules" ]]; then
+log "Platform migrations (host needs node_modules from pnpm install, or run from a builder machine)"
+if grep -q '^NEON_DATABASE_URL=.\+' "$CONFIG_ENV" 2>/dev/null && [[ -d "$CURRENT/node_modules" ]]; then
   set -a
   # shellcheck disable=SC1090
   source "$CONFIG_ENV"
@@ -110,7 +110,7 @@ if grep -q '^SUPABASE_DB_URL=.\+' "$CONFIG_ENV" 2>/dev/null && [[ -d "$CURRENT/n
   (cd "$CURRENT" && npm run platform:migrate --workspace=apps/web) \
     || log "migration may already be applied — see output above"
 else
-  log "skip migrate (no SUPABASE_DB_URL or no node_modules — run: cd $CURRENT && corepack pnpm install --no-frozen-lockfile && npm run platform:migrate --workspace=apps/web)"
+  log "skip migrate (no NEON_DATABASE_URL or no node_modules — run: cd $CURRENT && corepack pnpm install --no-frozen-lockfile && npm run platform:migrate --workspace=apps/web)"
 fi
 
 PASS=0
@@ -178,4 +178,3 @@ if [[ "$PASS" -lt 4 || "$FAIL" -gt 0 ]]; then
   die "Public VPS verification failed ($FAIL failures) — inspect: docker compose -f $COMPOSE logs --tail=80 app caddy"
 fi
 
-log "Release ${SHORT_SHA} is up. Image tag: $APP_IMAGE"

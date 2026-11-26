@@ -2,8 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Github, LoaderCircle } from "lucide-react";
-import EmailAuthPanel from "./EmailAuthPanel";
+import { AlertCircle, LoaderCircle } from "lucide-react";
 import { authClient } from "../lib/auth-client";
 import { refreshBrowserSession } from "../lib/browser-session";
 import "./auth-simple.css";
@@ -22,21 +21,17 @@ export default function AuthLogin({
   const authReady = !isPending;
   const [busy, setBusy] = useState(false);
   const [authError, setAuthError] = useState("");
-  async function social(provider: "google" | "github") {
+  async function social() {
     setOauthStarted(true);
     setBusy(true);
     setAuthError("");
     try {
       const result = await authClient.signIn.social({
-        provider,
+        provider: "google",
         callbackURL: window.location.origin + "/",
       });
       if (result.error) {
-        setAuthError(
-          result.error.status === 503
-            ? "ระบบยืนยันตัวตนยังตั้งค่าไม่ครบ กรุณาตรวจสอบตัวแปรสภาพแวดล้อม Supabase บนเซิร์ฟเวอร์"
-            : "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจการเปิดใช้งานผู้ให้บริการและ Redirect URL ใน Supabase Auth"
-        );
+        setAuthError(result.error.message || "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
       }
     } catch {
       setAuthError("เชื่อมต่อระบบเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
@@ -84,77 +79,27 @@ export default function AuthLogin({
           >
             ai-sdk<span>.pro</span>
           </Link>
-          <h1 id="login-title">
-            {platformRegistration ? "Create your AI SDK Pro account" : initialMode === "sign-up" ? "Create your account" : "Welcome back"}
-          </h1>
+          <h1 id="login-title">{platformRegistration || initialMode === "sign-up" ? "Create your ai-sdk.pro account" : "Welcome back"}</h1>
           {oauthStarted && authError && (
             <div className="auth-alert" role="alert">
               <AlertCircle size={16} />
               <span>{authError}</span>
             </div>
           )}
-          {platformRegistration ? (
-            <p>
-              Your name and email identify your AI SDK Pro account and Workspace.
-              Verify your email before signing in.
-            </p>
-          ) : (
-            <>
-              <div className="simple-auth-providers">
-                <button
-                  type="button"
-                  className="auth-github-button"
-                  disabled={!authReady || busy}
-                  onClick={() => {
-                    void social("google");
-                  }}
-                >
-                  {busy ? (
-                    <LoaderCircle className="auth-spin" size={18} />
-                  ) : (
-                    <span aria-hidden="true" className="simple-google-mark">
-                      G
-                    </span>
-                  )}
-                  <span>Continue with Google</span>
-                </button>
-                <button
-                  type="button"
-                  className="auth-github-button"
-                  disabled={!authReady || busy}
-                  onClick={() => {
-                    void social("github");
-                  }}
-                >
-                  {busy ? (
-                    <LoaderCircle className="auth-spin" size={18} />
-                  ) : (
-                    <Github size={20} aria-hidden="true" />
-                  )}
-                  <span>Continue with GitHub</span>
-                </button>
-              </div>
-              <div className="simple-auth-divider" role="separator">
-                <span>OR</span>
-              </div>
-            </>
-          )}
-          <EmailAuthPanel enabled initialMode={initialMode} />
+          <div className="simple-auth-providers">
+            <button type="button" className="auth-github-button" disabled={!authReady || busy} onClick={() => { void social(); }}>
+              {busy ? <LoaderCircle className="auth-spin" size={18} /> : <span aria-hidden="true" className="simple-google-mark">G</span>}
+              <span>Continue with Google</span>
+            </button>
+          </div>
+          <p className="simple-auth-hint">ใช้บัญชี Google เพื่อเข้าสู่ระบบและสร้าง Workspace</p>
           {!authReady && (
             <p className="auth-status" role="status">
               Preparing secure sign-in…
             </p>
           )}
           <p className="simple-auth-footer">
-            {initialMode === "sign-up" ? (
-              <>
-                Already have an account? <Link href="/login">Log in</Link>
-              </>
-            ) : (
-              <>
-                New to ai-sdk.pro? <Link href="/oauth/consent">Create an account</Link>
-              </>
-            )}
+            <Link href="/login">ai-sdk.pro</Link>
           </p>
         </section>
       </div>
