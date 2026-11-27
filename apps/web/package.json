@@ -27,6 +27,7 @@
     "@cloudflare/ai-chat": "0.12.2",
     "@google/genai": "^3.6.1",
     "@opennextjs/cloudflare": "^1.20.17",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "2.9.0",
     "@vis.gl/react-google-maps": "1.10.2",
     "agents": "0.33.0",
