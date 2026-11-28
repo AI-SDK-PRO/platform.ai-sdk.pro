@@ -15,7 +15,7 @@ async function main() {
   const workflowRef = required("PREVIEW_PILOT_WORKFLOW_REF");
   if (!/^[a-z\d_.-]+\/[a-z\d_.-]+$/i.test(repository) || !/^[1-9][0-9]*$/.test(installation))
     throw new Error("Invalid pilot repository or installation.");
-  const sql = postgres(required("SUPABASE_DB_URL"), { prepare: false, max: 1, ssl: "verify-full" });
+  const sql = postgres(required("NEON_DATABASE_URL"), { prepare: false, max: 1, ssl: "verify-full" });
   try {
 
     // Dispatch can succeed even if the HTTP response is lost. Require reconciliation before retrying.

@@ -1,4 +1,3 @@
-import { getSupabaseAuth } from "@/lib/supabase-auth";
 import { eq } from "drizzle-orm";
 import { requireSessionUser } from "@/lib/auth";
 import { getPlatformDb } from "@/lib/db/client";
@@ -19,16 +18,13 @@ export async function GET(request: Request) {
       .select({ providerId: account.providerId })
       .from(account)
       .where(eq(account.userId, user.id));
-    const { data: methods, error } = await (await getSupabaseAuth()).getUserIdentities();
-    if (error) return jsonError("Sign-in methods are unavailable.", 502);
     return Response.json(
       {
         github: linked.some(row => row.providerId === "github-repository"),
-        googleLogin: methods?.identities.some(row => row.provider === "google") ?? false,
-        githubLogin: methods?.identities.some(row => row.provider === "github") ?? false,
-        password:
-          methods?.identities.some(row => row.provider === "email") ?? false,
-        authProvider: "supabase",
+        googleLogin: linked.some(row => row.providerId === "google"),
+        githubLogin: false,
+        password: false,
+        authProvider: "better-auth",
         emailVerified: true,
         email: user.email,
       },

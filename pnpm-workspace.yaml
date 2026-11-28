@@ -16,7 +16,7 @@ onlyBuiltDependencies:
 
 # Match the Managed Better Auth server and its SDK-pinned fetch peer.
 overrides:
-  better-auth: 1.7.12
-  "@better-auth/core": 1.7.12
-  "@better-auth/oauth-provider": 1.7.12
+  better-auth: 1.7.19
+  "@better-auth/core": 1.7.19
+  "@better-auth/oauth-provider": 1.7.19
   better-call: 1.4.4

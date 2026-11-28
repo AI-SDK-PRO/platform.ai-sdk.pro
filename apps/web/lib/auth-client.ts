@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 
 type Session = { user: { emailVerified: boolean } } | null;
-type Email = { email: string };
-type Redirect = { callbackURL?: string; redirectTo?: string };
-type Social = Redirect & { provider: "google" | "github" };
+type Social = { provider: "google"; callbackURL?: string; errorCallbackURL?: string };
 type Result = { error: { status: number; message: string } | null };
 
 async function mutate(path: string, input: object = {}): Promise<Result> {
@@ -47,15 +45,6 @@ export const authClient = {
   },
   signIn: {
     social: (input: Social) => mutate("sign-in/social", input),
-    email: (input: Email & { password: string }) => mutate("sign-in/email", input),
-  },
-  signUp: {
-    email: (input: Email & Redirect & { password: string; name: string }) =>
-      mutate("sign-up/email", input),
   },
   signOut: () => mutate("sign-out"),
-  sendVerificationEmail: (input: Email & Redirect) => mutate("send-verification-email", input),
-  requestPasswordReset: (input: Email & Redirect) => mutate("request-password-reset", input),
-  resetPassword: (input: { token: string; newPassword: string }) => mutate("reset-password", input),
-  linkSocial: (input: Social) => mutate("link-social", input),
 };

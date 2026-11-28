@@ -64,8 +64,8 @@ env:
 
   # Uncomment and bind these in Cloud Secret Manager (firebase apphosting:secrets:set <NAME>)
   # when enabling Neon PostgreSQL, GitHub OAuth, Resend email, or Cloudflare Keyless Chat:
-  # - variable: SUPABASE_DB_URL
-  #   secret: SUPABASE_DB_URL
+  # - variable: NEON_DATABASE_URL
+  #   secret: NEON_DATABASE_URL
   #   availability: [RUNTIME]
   # - variable: BETTER_AUTH_SECRET
   #   secret: BETTER_AUTH_SECRET

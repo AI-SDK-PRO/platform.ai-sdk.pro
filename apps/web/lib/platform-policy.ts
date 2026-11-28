@@ -26,7 +26,9 @@ export type PlatformConfig = {
   baseURL: string;
   baseOrigin: string;
   secret: string;
-  supabaseDatabaseUrl: string;
+  databaseUrl: string;
+  googleClientId: string;
+  googleClientSecret: string;
   githubClientId: string;
   githubClientSecret: string;
   githubAppSlug: string;
@@ -59,24 +61,20 @@ function normalizeVercelOrigin(hostOrUrl: string | undefined): string | null {
 
 export function getPlatformConfig(): PlatformConfig {
   const configuredUrl =
-    process.env.BETTER_AUTH_URL?.trim() || DEFAULT_PLATFORM_URL;
+    process.env.BETTER_AUTH_URL?.trim() ||
+    (process.env.NODE_ENV === "production" ? "https://ai-sdk.pro" : "http://localhost:3000");
   const base = validBaseURL(configuredUrl);
-  const databaseUrl = process.env.SUPABASE_DB_URL?.trim() || "";
+  const databaseUrl = process.env.NEON_DATABASE_URL?.trim() || process.env.DATABASE_URL?.trim() || "";
   const secret = process.env.BETTER_AUTH_SECRET?.trim() || "";
   const missingConfiguration: string[] = [];
   if (!/^postgres(?:ql)?:\/\//i.test(databaseUrl))
-    missingConfiguration.push("SUPABASE_DB_URL");
+    missingConfiguration.push("NEON_DATABASE_URL");
   if (secret.length < 32) missingConfiguration.push("BETTER_AUTH_SECRET");
-  try {
-    const authUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "");
-    if (authUrl.protocol !== "https:" || authUrl.username || authUrl.password ||
-        authUrl.pathname !== "/" || authUrl.search || authUrl.hash) throw new Error();
-  } catch {
-    missingConfiguration.push("NEXT_PUBLIC_SUPABASE_URL");
-  }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim())
-    missingConfiguration.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   if (!base) missingConfiguration.push("BETTER_AUTH_URL");
+  const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || "";
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || "";
+  if (!googleClientId) missingConfiguration.push("GOOGLE_CLIENT_ID");
+  if (!googleClientSecret) missingConfiguration.push("GOOGLE_CLIENT_SECRET");
   const rawAppSlug = process.env.GITHUB_APP_SLUG?.trim() || "ai-sdk-pro";
   const githubAppSlug = rawAppSlug
     .replace(/^https:\/\/github\.com\/apps\//i, "")
@@ -93,14 +91,14 @@ export function getPlatformConfig(): PlatformConfig {
     process.env.GITHUB_CLIENT_ID?.trim() &&
       process.env.GITHUB_CLIENT_SECRET?.trim()
   );
-  const emailRegistrationAvailable = Boolean(
-    configured && process.env.PLATFORM_EMAIL_AUTH_ENABLED !== "false"
-  );
+  const emailRegistrationAvailable = false;
   return {
     baseURL,
     baseOrigin: baseURL,
     secret,
-    supabaseDatabaseUrl: databaseUrl,
+    databaseUrl,
+    googleClientId,
+    googleClientSecret,
     githubClientId: process.env.GITHUB_CLIENT_ID?.trim() || "",
     githubClientSecret: process.env.GITHUB_CLIENT_SECRET?.trim() || "",
     githubAppSlug,

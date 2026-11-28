@@ -12,7 +12,7 @@ let databaseClient: PlatformDatabase | null = null;
 let databaseUrlForClient: string | null = null;
 
 export function getPlatformSql(): PlatformSql | null {
-  const url = process.env.SUPABASE_DB_URL?.trim();
+  const url = process.env.NEON_DATABASE_URL?.trim() || process.env.DATABASE_URL?.trim();
   if (!url) return null;
   if (!sqlClient || databaseUrlForClient !== url) {
     if (sqlClient) void sqlClient.end({ timeout: 5 }).catch(() => {});

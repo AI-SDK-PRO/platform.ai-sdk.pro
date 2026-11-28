@@ -1,134 +1,108 @@
 import "server-only";
-import { getSupabaseAuth } from "./supabase-auth";
-import { eq } from "drizzle-orm";
-import { authIdentity } from "./db/schema";
-import { getPlatformDb } from "./db/client";
-import { user } from "./db/schema";
-import {
-  PlatformAuthenticationError,
-  PlatformSetupRequiredError,
-} from "./platform-policy";
-import { readConnectedGitHubToken } from "./github-connection";
 
+import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { betterAuth } from "better-auth";
+import { account, authTables } from "./db/schema";
+import { getPlatformDb } from "./db/client";
+import { readConnectedGitHubToken } from "./github-connection";
+import { PlatformAuthenticationError, requirePlatformConfig, trustedPlatformOrigins } from "./platform-policy";
+import { PLATFORM_SESSION_POLICY } from "./session-policy";
 
 const AUTH_ENDPOINTS = new Set([
-  "POST sign-up/email",
-  "POST sign-in/email",
-  "POST sign-in/social",
-  "POST sign-out",
-  "GET get-session",
-  "POST send-verification-email",
-  "POST request-password-reset",
-  "POST reset-password",
-  "POST link-social",
+  "GET get-session", "POST get-session", "POST sign-in/social", "POST sign-out",
+  "GET callback/google", "POST callback/google",
 ]);
-export function isAllowedAuthEndpoint(method: string, path: string): boolean {
+
+export function isAllowedAuthEndpoint(method: string, path: string) {
   return AUTH_ENDPOINTS.has(`${method} ${path}`);
 }
+
 export class GitHubConnectionRequiredError extends Error {
   readonly status = 409;
-  constructor() {
-    super("Connect GitHub in account settings.");
-    this.name = "GitHubConnectionRequiredError";
-  }
+  constructor() { super("Connect GitHub in account settings."); this.name = "GitHubConnectionRequiredError"; }
 }
-export async function getManagedSession() {
-  const auth = await getSupabaseAuth();
-  const { data, error } = await auth.getUser();
-  if (error) {
-    if (error.name === "AuthSessionMissingError" || error.status === 401 || error.status === 403)
-      return null;
-    throw new PlatformSetupRequiredError("Authentication service unavailable.");
-  }
-  const current = data.user;
-  if (!current?.email || !current.email_confirmed_at) return null;
-  const { data: state } = await auth.getSession();
-  const expiresAt = state.session?.expires_at;
-  if (!expiresAt) return null;
-  const metadata = current.user_metadata;
-  return {
-    user: {
-      id: current.id,
-      name: typeof metadata.name === "string" ? metadata.name : current.email,
-      email: current.email,
-      emailVerified: true,
-      image: typeof metadata.avatar_url === "string" ? metadata.avatar_url : null,
+
+let authInstance: ReturnType<typeof createPlatformAuth> | null = null;
+let authCacheKey = "";
+
+export function createPlatformAuth() {
+  const config = requirePlatformConfig();
+  const database = getPlatformDb();
+  if (!database) throw new Error("Platform database is unavailable.");
+  const secureCookies = config.baseURL.startsWith("https://");
+  const productionGoogleRedirect = secureCookies
+    ? process.env.GOOGLE_REDIRECT_URI?.trim() || "https://www.ai-sdk.pro/auth/platform"
+    : undefined;
+  return betterAuth({
+    appName: "ai-sdk.pro",
+    baseURL: config.baseURL,
+    basePath: "/api/auth",
+    secret: config.secret,
+    database: drizzleAdapter(database, {
+      provider: "pg", schema: authTables, schemaName: "aisdk_pro",
+      transaction: false, debugLogs: false,
+    }),
+    socialProviders: {
+      google: {
+        clientId: config.googleClientId,
+        clientSecret: config.googleClientSecret,
+        ...(productionGoogleRedirect ? { redirectURI: productionGoogleRedirect } : {}),
+        prompt: "select_account",
+      },
     },
-    session: { expiresAt: expiresAt * 1000 },
-  };
+    account: {
+      accountLinking: { enabled: true, disableImplicitLinking: true },
+      encryptOAuthTokens: true,
+      storeStateStrategy: "database",
+    },
+    session: PLATFORM_SESSION_POLICY,
+    advanced: {
+      useSecureCookies: secureCookies,
+      defaultCookieAttributes: {
+        httpOnly: true, secure: secureCookies,
+        sameSite: secureCookies ? "lax" : "lax", path: "/",
+      },
+      ...(secureCookies ? { crossSubDomainCookies: { enabled: true, domain: "ai-sdk.pro" } } : {}),
+    },
+    trustedOrigins: trustedPlatformOrigins(config),
+    logger: { disabled: true },
+  });
 }
 
-export async function getSessionUser(_request: Request) {
-  const session = await getManagedSession();
-  if (!session?.user || session.user.emailVerified !== true) return null;
-
-  const db = getPlatformDb();
-  if (!db) throw new PlatformSetupRequiredError();
-  const [mapped] = await db.select({ userId: authIdentity.userId }).from(authIdentity)
-    .where(eq(authIdentity.supabaseId, session.user.id));
-  const identity = { ...session.user, id: mapped?.userId ?? session.user.id };
-  const now = new Date();
-  // Keep existing app foreign keys without managing passwords or auth sessions
-  // ourselves. Identity is keyed only by a verified Supabase ID or an explicit migration mapping, never by email.
-  try {
-    await db
-      .insert(user)
-      .values({
-        id: identity.id,
-        name: identity.name,
-        email: identity.email,
-        emailVerified: true,
-        image: identity.image ?? null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: user.id,
-        set: {
-          name: identity.name,
-          email: identity.email,
-          emailVerified: true,
-          image: identity.image ?? null,
-          updatedAt: now,
-        },
-      });
-  } catch (error) {
-    const code =
-      error && typeof error === "object" && "code" in error
-        ? String((error as { code?: unknown }).code)
-        : "";
-    if (code === "23505") {
-      throw new PlatformAuthenticationError(
-        "This email belongs to a legacy account that requires explicit identity mapping."
-      );
-    }
-    throw error;
+export function getAuth() {
+  const config = requirePlatformConfig();
+  const key = `${config.baseURL}:${config.googleClientId}:${config.databaseUrl}`;
+  if (!authInstance || authCacheKey !== key) {
+    authInstance = createPlatformAuth();
+    authCacheKey = key;
   }
-  return { ...publicUser(identity), emailVerified: true };
+  return authInstance;
 }
+
+export function resetAuthForTests() { authInstance = null; authCacheKey = ""; }
+
+export async function getManagedSession(request: Request) {
+  return getAuth().api.getSession({ headers: request.headers, query: { disableRefresh: true } });
+}
+
+export async function getSessionUser(request: Request) {
+  const session = await getManagedSession(request);
+  if (!session?.user || !session.user.emailVerified) return null;
+  return { ...publicUser(session.user), emailVerified: true };
+}
+
 export async function requireSessionUser(request: Request) {
-  const current = await getSessionUser(request);
-  if (!current) throw new PlatformAuthenticationError();
-  return current;
+  const user = await getSessionUser(request);
+  if (!user) throw new PlatformAuthenticationError();
+  return user;
 }
-export async function getGitHubAccessToken(
-  _request: Request,
-  userId: string
-): Promise<string> {
+
+export async function getGitHubAccessToken(_request: Request, userId: string) {
   const token = await readConnectedGitHubToken(userId);
   if (!token) throw new GitHubConnectionRequiredError();
   return token;
 }
-export function publicUser(value: {
-  id: string;
-  name: string;
-  email: string;
-  image?: string | null;
-}) {
-  return {
-    id: value.id,
-    name: value.name,
-    email: value.email,
-    image: value.image ?? null,
-  };
+
+export function publicUser(value: { id: string; name: string; email: string; image?: string | null; emailVerified?: boolean }) {
+  return { id: value.id, name: value.name, email: value.email, image: value.image ?? null, ...(value.emailVerified !== undefined ? { emailVerified: value.emailVerified } : {}) };
 }

@@ -305,7 +305,7 @@ export default function RepositoryViewer({ repositoryId }: { repositoryId: strin
                   <StatusBadge status="ready">Isolated</StatusBadge>
                 </div>
                 <p>
-                  Imported repository code is never executed inside the web runtime container and has no access to Docker, Supabase, or SSH keys.
+                  Imported repository code is never executed inside the web runtime container and has no access to Docker, the platform database, or SSH keys.
                 </p>
                 <button
                   type="button"

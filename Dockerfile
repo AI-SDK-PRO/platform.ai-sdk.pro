@@ -33,11 +33,6 @@ COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/standalone/ ./
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/public ./apps/web/public
 
-# Supabase's connection pooler presents a certificate signed by the Supabase
-# root CA. The app connects with ssl: "verify-full", so Node must trust it.
-COPY --from=builder /repo/infra/certs/supabase-prod-ca-2021.crt /etc/ssl/certs/supabase-prod-ca-2021.crt
-ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/supabase-prod-ca-2021.crt
-
 # Next.js 16 writes prerender route-cache beside server assets. Production
 # uses a read-only rootfs with a writable /tmp tmpfs, so route-cache must be
 # redirected there instead of attempting mkdir on the immutable filesystem.
