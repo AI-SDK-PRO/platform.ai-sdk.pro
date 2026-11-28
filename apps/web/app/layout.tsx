@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_Thai } from "next/font/google";
 import "@aisdkpro/ui/styles.css";
+import { Analytics } from "@vercel/analytics/next";
 import GoogleMapsQuotaGuard from "../components/GoogleMapsQuotaGuard";
 import SessionActivity from "../components/SessionActivity";
 import {
@@ -55,6 +56,7 @@ export default function RootLayout({
         />
         <GoogleMapsQuotaGuard />
         <SessionActivity>{children}</SessionActivity>
+        <Analytics />
         <SpeedInsights />
       </body>
     </html>
