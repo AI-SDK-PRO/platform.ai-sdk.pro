@@ -5,17 +5,18 @@ vi.mock("server-only", () => ({}));
 import { isAllowedAuthEndpoint } from "./auth";
 
 describe("auth endpoint allowlist", () => {
-  it("allows bounded native auth and explicit GitHub linking", () => {
+  it("allows bounded native auth and social callbacks", () => {
     expect(isAllowedAuthEndpoint("POST", "sign-up/email")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "sign-in/email")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "send-verification-email")).toBe(true);
-    expect(isAllowedAuthEndpoint("GET", "verify-email")).toBe(false);
+    expect(isAllowedAuthEndpoint("GET", "verify-email")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "request-password-reset")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "reset-password")).toBe(true);
-    expect(isAllowedAuthEndpoint("POST", "link-social")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "sign-in/social")).toBe(true);
-    expect(isAllowedAuthEndpoint("GET", "callback/github")).toBe(false);
-    expect(isAllowedAuthEndpoint("POST", "callback/github")).toBe(false);
+    expect(isAllowedAuthEndpoint("GET", "callback/google")).toBe(true);
+    expect(isAllowedAuthEndpoint("POST", "callback/google")).toBe(true);
+    expect(isAllowedAuthEndpoint("GET", "callback/github")).toBe(true);
+    expect(isAllowedAuthEndpoint("POST", "callback/github")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "sign-out")).toBe(true);
     expect(isAllowedAuthEndpoint("POST", "get-access-token")).toBe(false);
 

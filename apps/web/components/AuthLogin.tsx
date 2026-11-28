@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, LoaderCircle } from "lucide-react";
+import { AlertCircle, Github, LoaderCircle } from "lucide-react";
+import EmailAuthPanel from "./EmailAuthPanel";
 import { authClient } from "../lib/auth-client";
 import { refreshBrowserSession } from "../lib/browser-session";
 import "./auth-simple.css";
@@ -21,13 +22,13 @@ export default function AuthLogin({
   const authReady = !isPending;
   const [busy, setBusy] = useState(false);
   const [authError, setAuthError] = useState("");
-  async function social() {
+  async function social(provider: "google" | "github") {
     setOauthStarted(true);
     setBusy(true);
     setAuthError("");
     try {
       const result = await authClient.signIn.social({
-        provider: "google",
+        provider,
         callbackURL: window.location.origin + "/",
       });
       if (result.error) {
@@ -87,12 +88,19 @@ export default function AuthLogin({
             </div>
           )}
           <div className="simple-auth-providers">
-            <button type="button" className="auth-github-button" disabled={!authReady || busy} onClick={() => { void social(); }}>
+            <button type="button" className="auth-github-button" disabled={!authReady || busy} onClick={() => { void social("google"); }}>
               {busy ? <LoaderCircle className="auth-spin" size={18} /> : <span aria-hidden="true" className="simple-google-mark">G</span>}
               <span>Continue with Google</span>
             </button>
+            <button type="button" className="auth-github-button" disabled={!authReady || busy} onClick={() => { void social("github"); }}>
+              {busy ? <LoaderCircle className="auth-spin" size={18} /> : <Github size={20} aria-hidden="true" />}
+              <span>Continue with GitHub</span>
+            </button>
           </div>
-          <p className="simple-auth-hint">ใช้บัญชี Google เพื่อเข้าสู่ระบบและสร้าง Workspace</p>
+          <div className="simple-auth-divider" role="separator">
+            <span>OR</span>
+          </div>
+          <EmailAuthPanel enabled initialMode={initialMode} />
           {!authReady && (
             <p className="auth-status" role="status">
               Preparing secure sign-in…

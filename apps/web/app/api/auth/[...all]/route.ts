@@ -1,6 +1,6 @@
 import { toNextJsHandler } from "better-auth/next-js";
 import { getAuth, isAllowedAuthEndpoint } from "@/lib/auth";
-import { isTrustedMutationOrigin, jsonError, noStoreHeaders, safePlatformError, trustedPlatformOrigins } from "@/lib/platform-policy";
+import { getPlatformConfig, isTrustedMutationOrigin, jsonError, noStoreHeaders, safePlatformError, trustedPlatformOrigins } from "@/lib/platform-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,8 +31,11 @@ async function handle(request: Request, context: Context) {
       try { body = await request.json(); } catch { return jsonError("Invalid sign-in request.", 400); }
       if (!body || typeof body !== "object" || Array.isArray(body)) return jsonError("Invalid sign-in request.", 400);
       const input = body as Record<string, unknown>;
-      if (input.provider !== "google" || Object.keys(input).some(key => !["provider", "callbackURL", "errorCallbackURL", "newUserCallbackURL"].includes(key)))
-        return jsonError("Only Google sign-in is available.", 400);
+      const provider = input.provider;
+      if ((provider !== "google" && provider !== "github") || Object.keys(input).some(key => !["provider", "callbackURL", "errorCallbackURL", "newUserCallbackURL"].includes(key)))
+        return jsonError("Only Google or GitHub sign-in is available.", 400);
+      if (provider === "github" && !getPlatformConfig().githubConfigured)
+        return jsonError("GitHub sign-in is not configured.", 503);
       for (const key of ["callbackURL", "errorCallbackURL", "newUserCallbackURL"]) {
         if (input[key] === undefined) continue;
         if (typeof input[key] !== "string" || !trustedPlatformOrigins().includes(new URL(input[key] as string, request.url).origin))
@@ -40,7 +43,7 @@ async function handle(request: Request, context: Context) {
       }
       const headers = new Headers(request.headers);
       headers.set("content-type", "application/json");
-      const safeBody = { ...input, provider: "google" };
+      const safeBody = { ...input, provider };
       const forwarded = new Request(request.url, { method: "POST", headers, body: JSON.stringify(safeBody) });
       return sanitize(await toNextJsHandler(getAuth()).POST(forwarded));
     }

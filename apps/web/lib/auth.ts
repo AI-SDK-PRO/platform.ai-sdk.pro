@@ -7,10 +7,15 @@ import { getPlatformDb } from "./db/client";
 import { readConnectedGitHubToken } from "./github-connection";
 import { PlatformAuthenticationError, requirePlatformConfig, trustedPlatformOrigins } from "./platform-policy";
 import { PLATFORM_SESSION_POLICY } from "./session-policy";
+import { sendAuthEmail } from "./registration-email";
 
 const AUTH_ENDPOINTS = new Set([
   "GET get-session", "POST get-session", "POST sign-in/social", "POST sign-out",
+  "POST sign-up/email", "POST sign-in/email",
+  "POST send-verification-email", "GET verify-email",
+  "POST request-password-reset", "POST reset-password",
   "GET callback/google", "POST callback/google",
+  "GET callback/github", "POST callback/github",
 ]);
 
 export function isAllowedAuthEndpoint(method: string, path: string) {
@@ -48,6 +53,39 @@ export function createPlatformAuth() {
         clientSecret: config.googleClientSecret,
         ...(productionGoogleRedirect ? { redirectURI: productionGoogleRedirect } : {}),
         prompt: "select_account",
+      },
+      ...(config.githubClientId && config.githubClientSecret
+        ? {
+            github: {
+              clientId: config.githubClientId,
+              clientSecret: config.githubClientSecret,
+            },
+          }
+        : {}),
+    },
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: true,
+      autoSignIn: false,
+      minPasswordLength: 12,
+      maxPasswordLength: 128,
+      sendResetPassword: async ({ user, url }) => {
+        await sendAuthEmail(
+          user.email,
+          "ตั้งรหัสผ่านใหม่ · ai-sdk.pro",
+          `เปิดลิงก์นี้เพื่อตั้งรหัสผ่านใหม่ (ใช้ได้ครั้งเดียว):\n${url}\n\nหากคุณไม่ได้ขอรีเซ็ตรหัสผ่าน ไม่ต้องดำเนินการใด ๆ`
+        );
+      },
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendAuthEmail(
+          user.email,
+          "ยืนยันอีเมล · ai-sdk.pro",
+          `ยืนยันอีเมลสำหรับบัญชี ai-sdk.pro:\n${url}`
+        );
       },
     },
     account: {
