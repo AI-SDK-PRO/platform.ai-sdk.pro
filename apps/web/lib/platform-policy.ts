@@ -91,7 +91,10 @@ export function getPlatformConfig(): PlatformConfig {
     process.env.GITHUB_CLIENT_ID?.trim() &&
       process.env.GITHUB_CLIENT_SECRET?.trim()
   );
-  const emailRegistrationAvailable = false;
+  const emailRegistrationAvailable = Boolean(
+    process.env.RESEND_API_KEY?.trim() &&
+      process.env.RESEND_FROM_EMAIL?.trim()
+  );
   return {
     baseURL,
     baseOrigin: baseURL,
